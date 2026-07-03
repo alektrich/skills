@@ -1,11 +1,9 @@
-# skills
-
-A collection of [agent skills](https://github.com/vercel-labs/skills) for Claude Code (and other compatible coding agents).
+A collection of agent skills for Claude Code (and other compatible coding agents).
 
 ## Skills
 
-| Skill | Description |
-| --- | --- |
+| Skill                                            | Description                                                                                                                                         |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`muscle-memory`](skills/muscle-memory/SKILL.md) | Coach mode — you write the meaningful code while the agent decomposes the task, reviews your work, and gives escalating hints instead of solutions. |
 
 ## Installation
