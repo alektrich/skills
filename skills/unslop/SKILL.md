@@ -1,11 +1,13 @@
 ---
 name: unslop
-description: Cut AI tells from any writing. Use when the user asks to unslop, de-AI, or tighten text, or when another skill asks for it.
+description: Cut AI tells from any writing. Must always apply.
+disable-model-invocation: true
 ---
 
 # Unslop
 
 Edit text to remove AI patterns.
+Based on https://github.com/cursor/plugins/blob/main/pstack/skills/unslop/SKILL.md
 
 ## Process
 
