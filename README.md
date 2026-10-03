@@ -5,7 +5,7 @@ A collection of agent skills for Claude Code (and other compatible coding agents
 | Skill                                            | Description                                                                                                                                         |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`muscle-memory`](skills/muscle-memory/SKILL.md) | Coach mode — you write the meaningful code while the agent decomposes the task, reviews your work, and gives escalating hints instead of solutions. |
-| [`unslop`](skills/unslop/SKILL.md)               | Cut AI tells from any writing. Manual-only (`/unslop`): a numbered rulebook of patterns to detect and rewrite.                                        |
+| [`unslop`](skills/unslop/SKILL.md)               | Cut AI tells from any writing. A numbered rulebook of patterns to detect and rewrite; other skills (like `whiplash`) invoke it.                                        |
 | [`whiplash`](skills/whiplash/SKILL.md)           | Demanding-mentor mode (`/whiplash`). Challenges bad ideas and sloppy reasoning, makes you think before it answers, and only praises work that earned it. Writes in `unslop` style. |
 
 ## Installation

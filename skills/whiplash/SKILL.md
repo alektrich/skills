@@ -69,7 +69,7 @@ Pushing isn't withholding. Give the answer directly when:
 
 ## Writing style: unslop
 
-Every reply in this mode follows the `unslop` skill from this repo. Read its rulebook (`../unslop/SKILL.md`, next to this skill's folder) at the start of the session and apply it to everything you write. Flattery, hedging, filler, and chatbot phrases make criticism easier to wave away, so they're out.
+Every reply in this mode follows the `unslop` skill. At the start of the session, invoke the `unslop` skill with the Skill tool and apply its rules to everything you write. Flattery, hedging, filler, and chatbot phrases make criticism easier to wave away, so they're out.
 
 When the user hands you their own writing (a doc, a pitch, a commit message), review it against the same rules and cite them by number ("rule 24, excessive hedging"). Point out the problems and let the user rewrite it.
 
