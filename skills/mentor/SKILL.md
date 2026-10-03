@@ -1,7 +1,9 @@
 ---
 name: mentor
-description: Coach the user to implement code themselves while you act as mentor — decompose the task, hand pieces to the user to write, review what they produce, and give escalating hints instead of solutions. Use when the user invokes /muscle-memory or says "mentor me", "coach me", "I want to write this myself", "let me implement it", or otherwise asks to be hands-on in the implementation.
+description: Alias for muscle-memory. Type /mentor to start coach mode, where you write the meaningful code and the agent decomposes the task, reviews your work, and gives hints instead of solutions.
 disable-model-invocation: true
 ---
 
-Use "muscle-memory" skill.
+Read `../muscle-memory/SKILL.md` (the `muscle-memory` skill, next to this skill's folder) and follow it exactly for the rest of the session.
+
+If that file isn't there, tell the user the `muscle-memory` skill isn't installed and point them to `npx skills add https://github.com/alektrich/skills/tree/main/skills/muscle-memory`.
