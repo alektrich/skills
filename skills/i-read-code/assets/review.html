@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code review</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --text: #1d2330; --muted: #667085; --border: #dde1e7;
+  --accent: #3b5bdb; --accent-soft: #e7ecff;
+  --ok: #1f8a4c; --ok-soft: #e3f5ea; --bad: #c92a2a; --bad-soft: #fdeaea; --warn: #b7791f;
+  --add-bg: #e9f8ee; --add-mk: #1f8a4c; --del-bg: #fdecec; --del-mk: #c92a2a; --focus-bg: #fff6d6;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218; --panel: #161a22; --panel-2: #1d222c; --text: #e3e7ee; --muted: #8b94a5; --border: #2a303c;
+    --accent: #7b93ff; --accent-soft: #1f2747;
+    --ok: #4cc27f; --ok-soft: #15301f; --bad: #ff6b6b; --bad-soft: #3a1a1c; --warn: #e2b04a;
+    --add-bg: #13281b; --add-mk: #4cc27f; --del-bg: #2f1719; --del-mk: #ff6b6b; --focus-bg: #3a3214;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); overflow: hidden; }
+button { font: inherit; cursor: pointer; }
+code { font-family: var(--mono); font-size: 0.92em; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
+
+header.top { height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.brand { font-weight: 700; letter-spacing: -0.01em; }
+.branch { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.branch b { color: var(--text); font-weight: 600; }
+.progress { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.bar { width: 160px; height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+.bar .c { background: var(--ok); } .bar .d { background: var(--bad); }
+.save { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.save.off { color: var(--bad); font-weight: 600; }
+
+.btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 5px 12px; border-radius: 7px; font-size: 13px; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.bad { background: var(--panel); border-color: var(--bad); color: var(--bad); }
+.btn.bad.solid { background: var(--bad); color: #fff; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.link { border: none; background: none; color: var(--accent); padding: 2px 4px; }
+
+.layout { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; height: calc(100% - 52px); }
+.pane { overflow: auto; min-height: 0; }
+nav.files { border-right: 1px solid var(--border); background: var(--panel); padding: 10px 8px 40px; }
+aside.related { border-left: 1px solid var(--border); background: var(--panel); padding: 14px 14px 40px; }
+main.main { padding: 0 0 80px; }
+
+.nav-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 7px; border: none; background: none; color: var(--text); text-align: left; }
+.nav-item:hover { background: var(--panel-2); }
+.nav-item.active { background: var(--accent-soft); }
+.nav-item .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.nav-item .path span { unicode-bidi: plaintext; }
+.nav-item .dir { color: var(--muted); }
+.nav-item.gen { opacity: 0.6; }
+.st { font: 600 11px var(--mono); width: 16px; text-align: center; flex: none; }
+.st-A { color: var(--ok); } .st-M { color: var(--warn); } .st-D { color: var(--bad); } .st-R, .st-C { color: var(--accent); } .st-ctx { color: var(--muted); }
+.chip { font-size: 11px; padding: 0 6px; border-radius: 99px; background: var(--panel-2); color: var(--muted); flex: none; }
+.chip.done { background: var(--ok-soft); color: var(--ok); }
+.chip.has-bad { background: var(--bad-soft); color: var(--bad); }
+.filter { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); margin: 8px 0; font: inherit; font-size: 13px; }
+.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 8px 6px; font-weight: 600; }
+
+.banner { margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 13px; }
+.file-head { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 14px 20px 10px; border-bottom: 1px solid var(--border); }
+.file-head h2 { margin: 0; font: 600 15px var(--mono); word-break: break-all; }
+.file-head .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.file-head .stats { font: 12px var(--mono); color: var(--muted); }
+.file-head .stats .a { color: var(--add-mk); } .file-head .stats .r { color: var(--del-mk); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; margin-left: auto; }
+.seg button { border: none; background: var(--panel); color: var(--muted); padding: 3px 10px; font-size: 12px; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.summary { color: var(--text); margin-top: 6px; font-size: 13.5px; }
+.summary p { margin: 4px 0; }
+.content { padding: 12px 20px; }
+.empty { color: var(--muted); padding: 20px; }
+
+table.code { width: 100%; border-collapse: collapse; font: 12.5px/1.55 var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+table.code td { padding: 0 8px; vertical-align: top; }
+td.no { width: 1%; min-width: 44px; text-align: right; color: var(--muted); user-select: none; white-space: nowrap; opacity: 0.8; }
+td.mk { width: 14px; padding: 0 2px; user-select: none; text-align: center; }
+td.src { white-space: pre-wrap; overflow-wrap: anywhere; width: 100%; }
+tr.add { background: var(--add-bg); } tr.add td.mk { color: var(--add-mk); }
+tr.del { background: var(--del-bg); } tr.del td.mk { color: var(--del-mk); }
+tr.ln td:first-child { border-left: 3px solid transparent; }
+tr.cov.s-pending td:first-child { border-left-color: var(--accent); }
+tr.cov.s-confirmed td:first-child { border-left-color: var(--ok); }
+tr.cov.s-declined td:first-child { border-left-color: var(--bad); }
+tr.hl td.src, tr.hl td.no { background: var(--focus-bg); }
+tr.focus-line td { background: var(--focus-bg); }
+tr.hunk td { background: var(--panel-2); color: var(--muted); padding: 3px 8px; font-size: 12px; }
+tr.gap td { background: var(--panel-2); color: var(--accent); padding: 2px 8px; font-size: 12px; cursor: pointer; text-align: center; }
+tr.gap:hover td { text-decoration: underline; }
+tr.removed-note td { color: var(--del-mk); font-size: 11.5px; padding: 0 8px; background: var(--del-bg); }
+tr.card-row td { padding: 8px 10px; background: var(--bg); font-family: var(--sans); font-size: 14px; }
+
+.card { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 9px; background: var(--panel); padding: 10px 14px; max-width: 880px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.card + .card { margin-top: 10px; }
+.card.s-confirmed { border-left-color: var(--ok); }
+.card.s-declined { border-left-color: var(--bad); }
+.card.focused { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.card-title { font-weight: 650; }
+.where { font: 12px var(--mono); color: var(--muted); margin-left: auto; }
+.imp { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.imp-high { background: var(--bad-soft); color: var(--bad); }
+.imp-medium { background: var(--accent-soft); color: var(--accent); }
+.imp-low { background: var(--panel-2); color: var(--muted); }
+.auto-tag { font-size: 11px; color: var(--muted); font-style: italic; }
+.expl p { margin: 6px 0; } .expl ul { margin: 6px 0; padding-left: 20px; }
+.concerns { margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: var(--panel-2); font-size: 13px; }
+.concerns p { margin: 0; display: inline; }
+.actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.verdict { font-weight: 600; font-size: 13px; }
+.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
+.reason { margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: var(--bad-soft); white-space: pre-wrap; font-size: 13px; }
+.decline-form { margin-top: 8px; }
+.decline-form textarea { width: 100%; min-height: 72px; padding: 8px; border-radius: 7px; border: 1px solid var(--bad); background: var(--bg); color: var(--text); font: inherit; resize: vertical; }
+.decline-form .hint { font-size: 12px; color: var(--muted); }
+.notes-block { margin-bottom: 14px; }
+
+aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+aside h3 + * { margin-top: 0; }
+aside section + section { margin-top: 22px; }
+.rel { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.rel:hover { border-color: var(--accent); }
+.rel .rp { font: 600 12.5px var(--mono); word-break: break-all; display: flex; gap: 6px; align-items: center; }
+.rel .rp span:first-child { flex: 1; }
+.rel .rr { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.kind { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 4px; flex: none; }
+.kind.changed { background: var(--accent-soft); color: var(--accent); }
+.kind.context { background: var(--panel-2); color: var(--muted); }
+.mini { display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 5px 6px; border: none; background: none; color: var(--text); text-align: left; border-radius: 6px; font-size: 13px; }
+.mini:hover { background: var(--panel-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent); align-self: center; }
+.dot.confirmed { background: var(--ok); } .dot.declined { background: var(--bad); }
+.mini .ml { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; flex: none; }
+.keys { font-size: 12.5px; color: var(--muted); line-height: 1.9; }
+kbd { font: 11px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel-2); color: var(--text); }
+
+.overview { padding: 20px 24px; max-width: 980px; }
+.overview h1 { font-size: 20px; margin: 0 0 6px; }
+.overview .meta { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+.overview .text p { margin: 8px 0; }
+.ov-file { margin-top: 18px; }
+.ov-file h4 { margin: 0 0 4px; font: 600 13px var(--mono); }
+.ov-file h4 button { all: unset; cursor: pointer; } .ov-file h4 button:hover { color: var(--accent); }
+.ov-file .fs { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+.done-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.done-overlay .box { background: var(--panel); border-radius: 12px; padding: 24px 28px; max-width: 520px; border: 1px solid var(--border); }
+.done-overlay h2 { margin: 0 0 8px; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 30; }
+@media (max-width: 1150px) {
+  .layout { grid-template-columns: 240px minmax(0, 1fr); }
+  aside.related { display: none; }
+  .bar { width: 90px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">i-read-code</span>
+  <span class="branch" id="branch"></span>
+  <div class="progress"><span id="count"></span><div class="bar" id="bar"></div></div>
+  <span class="save" id="save"></span>
+  <button class="btn" data-act="next-pending" title="Next pending item (n)">Next pending</button>
+  <button class="btn primary" data-act="finish">Finish review</button>
+</header>
+<div class="layout">
+  <nav class="files pane" id="files"></nav>
+  <main class="main pane" id="main"></main>
+  <aside class="related pane" id="related"></aside>
+</div>
+<script id="review-data" type="application/json">__REVIEW_DATA__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("review-data").textContent);
+const FILES = new Map(DATA.files.map(f => [f.path, f]));
+const CTX = new Map(DATA.context_files.map(f => [f.path, f]));
+const CHANGES = new Map(DATA.changes.map(c => [c.id, c]));
+const BY_FILE = new Map();
+for (const c of DATA.changes) {
+  if (!BY_FILE.has(c.file)) BY_FILE.set(c.file, []);
+  BY_FILE.get(c.file).push(c);
+}
+const HL = window.hljs || null;
+const $ = id => document.getElementById(id);
+
+const state = {
+  decisions: {}, online: false, finished: false,
+  view: { kind: "overview" }, history: [],
+  focus: null, editing: null, draft: "", mode: "diff",
+  expanded: new Set(), showGenerated: new Set(), filter: "",
+};
+
+// ---------- helpers ----------
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+function inline(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+function md(src) {
+  if (!src) return "";
+  return String(src).trim().split(/\n{2,}/).map(block => {
+    const lines = block.split("\n");
+    if (lines.every(l => /^\s*[-*] /.test(l))) {
+      return "<ul>" + lines.map(l => "<li>" + inline(l.replace(/^\s*[-*] /, "")) + "</li>").join("") + "</ul>";
+    }
+    return "<p>" + lines.map(inline).join("<br>") + "</p>";
+  }).join("");
+}
+const LANG_ALIAS = { htm: "xml", html: "xml", vue: "xml", svelte: "xml", svg: "xml", jsx: "javascript", mjs: "javascript", cjs: "javascript", tsx: "typescript", yml: "yaml", h: "c", hpp: "cpp", cc: "cpp", kt: "kotlin", rs: "rust", rb: "ruby", py: "python", sh: "bash", zsh: "bash", md: "markdown", tf: "ini", toml: "ini" };
+function langFor(path) {
+  if (!HL) return null;
+  const base = path.split("/").pop().toLowerCase();
+  if (base === "dockerfile") return HL.getLanguage("dockerfile") ? "dockerfile" : null;
+  if (base === "makefile") return HL.getLanguage("makefile") ? "makefile" : null;
+  const ext = base.includes(".") ? base.split(".").pop() : "";
+  const lang = LANG_ALIAS[ext] || ext;
+  return lang && HL.getLanguage(lang) ? lang : null;
+}
+const hlCache = new Map();
+function code(text, lang) {
+  if (!text) return " ";
+  if (!lang) return esc(text);
+  const key = lang + "\u0000" + text;
+  if (!hlCache.has(key)) {
+    let out;
+    try { out = HL.highlight(text, { language: lang, ignoreIllegals: true }).value; } catch (e) { out = esc(text); }
+    hlCache.set(key, out);
+  }
+  return hlCache.get(key);
+}
+function splitPath(p) {
+  const i = p.lastIndexOf("/");
+  return i < 0 ? ["", p] : [p.slice(0, i + 1), p.slice(i + 1)];
+}
+const STATUS_LETTER = { added: "A", modified: "M", deleted: "D", renamed: "R", copied: "C", typechange: "T" };
+function decision(id) { return state.decisions[id] || { status: "pending", reason: "" }; }
+function countsFor(list) {
+  const c = { total: list.length, confirmed: 0, declined: 0, pending: 0 };
+  for (const x of list) c[decision(x.id).status]++;
+  return c;
+}
+function whereLabel(c) {
+  if (c.start == null) return "whole file";
+  const r = c.start === c.end ? `L${c.start}` : `L${c.start}–${c.end}`;
+  return c.side === "old" ? `${r} (old)` : r;
+}
+
+// ---------- coverage (mirrors build_review.py) ----------
+function* walk(h) {
+  let o = h.old_start + (h.old_lines === 0 ? 1 : 0);
+  let n = h.new_start + (h.new_lines === 0 ? 1 : 0);
+  for (const ln of h.lines) {
+    const kind = ln[0];
+    yield [ln, kind !== "del" ? ln[2] : n, kind !== "add" ? ln[1] : o];
+    if (kind !== "add") o++;
+    if (kind !== "del") n++;
+  }
+}
+function covers(c, kind, na, oa) {
+  if (c.start == null) return false;
+  if (c.side === "new") return kind !== "del" ? c.start <= na && na <= c.end : c.start <= na && c.end >= na - 1;
+  if (c.side === "old") return kind !== "add" ? c.start <= oa && oa <= c.end : c.start <= oa && c.end >= oa - 1;
+  return false;
+}
+
+// ---------- rendering ----------
+function renderHeader() {
+  const m = DATA.meta;
+  $("branch").innerHTML = `<b>${esc(m.head)}</b> vs <b>${esc(m.base)}</b> · merge-base ${esc(m.merge_base.slice(0, 8))}${m.include_uncommitted ? " · incl. uncommitted" : ""}`;
+  const c = countsFor(DATA.changes);
+  const done = c.confirmed + c.declined;
+  $("count").textContent = `${done} of ${c.total} reviewed${c.declined ? ` · ${c.declined} declined` : ""}`;
+  const pct = n => (c.total ? (100 * n / c.total) : 0) + "%";
+  $("bar").innerHTML = `<i class="c" style="width:${pct(c.confirmed)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
+  const s = $("save");
+  s.className = "save" + (state.online ? "" : " off");
+  s.textContent = state.finished ? "Finished" : state.online ? "Autosaving to review.json" : "Not connected, decisions won't be saved";
+  document.title = `Review · ${m.head}`;
+}
+
+function fileChip(path) {
+  const c = countsFor(BY_FILE.get(path) || []);
+  if (!c.total) return "";
+  if (c.declined) return `<span class="chip has-bad">${c.declined} ✗ · ${c.confirmed + c.declined}/${c.total}</span>`;
+  if (!c.pending) return `<span class="chip done">✓ ${c.total}</span>`;
+  return `<span class="chip">${c.confirmed}/${c.total}</span>`;
+}
+function pathLabel(p) {
+  const [dir, base] = splitPath(p);
+  return `<span class="path" title="${esc(p)}"><span><span class="dir">${esc(dir)}</span>${esc(base)}</span></span>`;
+}
+function renderFiles() {
+  const v = state.view;
+  const all = countsFor(DATA.changes);
+  const q = state.filter.toLowerCase();
+  let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st">≡</span><span class="path"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.confirmed + all.declined}/${all.total}</span></button>`;
+  h += `<input class="filter" id="filter" placeholder="Filter files…" value="${esc(state.filter)}">`;
+  h += `<div class="section-label">Changed files · ${DATA.files.length}</div>`;
+  for (const f of DATA.files) {
+    if (q && !f.path.toLowerCase().includes(q)) continue;
+    const L = STATUS_LETTER[f.status] || "M";
+    h += `<button class="nav-item ${f.generated ? "gen" : ""} ${v.kind === "file" && v.path === f.path ? "active" : ""}" data-act="open" data-path="${esc(f.path)}" title="${esc(f.path)}"><span class="st st-${L}">${L}</span>${pathLabel(f.path)}${fileChip(f.path)}</button>`;
+  }
+  const ctx = DATA.context_files.filter(f => !q || f.path.toLowerCase().includes(q));
+  if (ctx.length) {
+    h += `<div class="section-label">Context (unchanged) · ${ctx.length}</div>`;
+    for (const f of ctx) {
+      h += `<button class="nav-item ${v.kind === "context" && v.path === f.path ? "active" : ""}" data-act="open" data-path="${esc(f.path)}"><span class="st st-ctx">·</span>${pathLabel(f.path)}</button>`;
+    }
+  }
+  const nav = $("files");
+  const hadFocus = document.activeElement && document.activeElement.id === "filter";
+  const pos = hadFocus ? document.activeElement.selectionStart : 0;
+  nav.innerHTML = h;
+  if (hadFocus) { const el = $("filter"); el.focus(); el.setSelectionRange(pos, pos); }
+}
+
+function cardHtml(c) {
+  const d = decision(c.id);
+  const editing = state.editing === c.id;
+  let actions;
+  if (editing) {
+    actions = `<div class="decline-form"><textarea id="reason" placeholder="Why are you declining this change? What should be different?">${esc(state.draft)}</textarea>
+      <div class="actions"><button class="btn bad solid" data-act="submit-decline" data-id="${esc(c.id)}">Decline</button><button class="btn" data-act="cancel">Cancel</button><span class="hint">⌘/Ctrl+Enter to save · Esc to cancel</span></div></div>`;
+  } else if (d.status === "confirmed") {
+    actions = `<div class="actions"><span class="verdict ok">✓ Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
+  } else if (d.status === "declined") {
+    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict bad">✗ Declined</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
+  } else {
+    const dis = state.online ? "" : "disabled";
+    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>Confirm</button><button class="btn bad" data-act="decline" data-id="${esc(c.id)}" ${dis}>Decline</button></div>`;
+  }
+  return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
+    <div class="card-head"><span class="imp imp-${c.importance}">${c.importance}</span><span class="card-title">${esc(c.title)}</span>${c.auto ? `<span class="auto-tag">added automatically</span>` : ""}<span class="where">${esc(whereLabel(c))}</span></div>
+    <div class="expl">${md(c.explanation)}</div>
+    ${c.concerns ? `<div class="concerns"><strong>Worth checking:</strong> ${md(c.concerns)}</div>` : ""}
+    ${actions}</div>`;
+}
+const cardRow = cards => cards.length ? `<tr class="card-row"><td colspan="4">${cards.map(cardHtml).join("")}</td></tr>` : "";
+
+function rowHtml(kind, o, n, text, lang, ids, extra = "") {
+  const st = ids.length ? " cov s-" + decision(ids[0]).status : "";
+  const mk = kind === "add" ? "+" : kind === "del" ? "−" : "";
+  return `<tr class="ln ${kind}${st}${extra}" ${ids.length ? `data-ids="${esc(ids.join(" "))}"` : ""}><td class="no">${o ?? ""}</td><td class="no">${n ?? ""}</td><td class="mk">${mk}</td><td class="src">${code(text, lang)}</td></tr>`;
+}
+
+function contentLines(f) {
+  if (f._lines === undefined) {
+    f._lines = f.content == null ? null : f.content.replace(/\n$/, "").split("\n");
+  }
+  return f._lines;
+}
+
+function gapRow(f, from, to, offset, key) {
+  if (to < from) return "";
+  const lines = contentLines(f);
+  const lang = langFor(f.path);
+  if (state.expanded.has(key) && lines) {
+    let h = "";
+    for (let n = from; n <= to; n++) h += rowHtml("ctx", n + offset, n, lines[n - 1] ?? "", lang, []);
+    return h;
+  }
+  const n = to - from + 1;
+  return lines ? `<tr class="gap" data-act="expand" data-key="${esc(key)}"><td colspan="4">⋯ show ${n} unchanged line${n === 1 ? "" : "s"}</td></tr>` : "";
+}
+
+function diffBody(f, changes) {
+  const lang = langFor(f.path);
+  const placed = new Set();
+  const ranged = changes.filter(c => c.start != null);
+  let h = "";
+  let nextNew = 1;
+  f.hunks.forEach((hk, hi) => {
+    const startNew = hk.new_start + (hk.new_lines === 0 ? 1 : 0);
+    const startOld = hk.old_start + (hk.old_lines === 0 ? 1 : 0);
+    if (f.status !== "deleted") h += gapRow(f, nextNew, startNew - 1, startOld - startNew, `${f.path}#${hi}`);
+    h += `<tr class="hunk"><td colspan="4">@@ −${hk.old_start},${hk.old_lines} +${hk.new_start},${hk.new_lines} @@ ${esc(hk.header)}</td></tr>`;
+    for (const [ln, na, oa] of walk(hk)) {
+      const ids = ranged.filter(c => covers(c, ln[0], na, oa)).map(c => c.id);
+      const fresh = ranged.filter(c => ids.includes(c.id) && !placed.has(c.id));
+      fresh.forEach(c => placed.add(c.id));
+      h += cardRow(fresh);
+      h += rowHtml(ln[0], ln[1], ln[2], ln[3], lang, ids);
+    }
+    nextNew = startNew + hk.new_lines;
+  });
+  const lines = contentLines(f);
+  if (lines && f.status !== "deleted" && f.hunks.length) {
+    const last = f.hunks[f.hunks.length - 1];
+    const lastOld = last.old_start + (last.old_lines === 0 ? 1 : 0) + last.old_lines;
+    h += gapRow(f, nextNew, lines.length, lastOld - nextNew, `${f.path}#end`);
+  }
+  return { body: h, placed };
+}
+
+function fullBody(f, changes) {
+  const lines = contentLines(f) || [];
+  const lang = langFor(f.path);
+  const added = new Set(), removedBefore = new Map();
+  for (const hk of f.hunks) for (const [ln, na] of walk(hk)) {
+    if (ln[0] === "add") added.add(ln[2]);
+    if (ln[0] === "del") removedBefore.set(na, (removedBefore.get(na) || 0) + 1);
+  }
+  const ranged = changes.filter(c => c.side === "new" && c.start != null);
+  const placed = new Set();
+  let h = "";
+  for (let n = 1; n <= lines.length + 1; n++) {
+    if (removedBefore.has(n)) h += `<tr class="removed-note"><td colspan="4">− ${removedBefore.get(n)} line(s) removed here (switch to Diff to see them)</td></tr>`;
+    if (n > lines.length) break;
+    const kind = added.has(n) ? "add" : "ctx";
+    const ids = ranged.filter(c => c.start <= n && n <= c.end).map(c => c.id);
+    const fresh = ranged.filter(c => ids.includes(c.id) && !placed.has(c.id));
+    fresh.forEach(c => placed.add(c.id));
+    h += cardRow(fresh);
+    h += rowHtml(kind, "", n, lines[n - 1], lang, ids);
+  }
+  return { body: h, placed };
+}
+
+function backButton() {
+  if (!state.history.length) return "";
+  const prev = state.history[state.history.length - 1];
+  const label = prev.kind === "overview" ? "Overview" : splitPath(prev.path)[1];
+  return `<button class="btn link" data-act="back">← Back to ${esc(label)}</button>`;
+}
+
+function renderFile(f) {
+  const changes = BY_FILE.get(f.path) || [];
+  const c = countsFor(changes);
+  const canFull = f.content != null && f.status !== "deleted" && !f.binary;
+  const mode = canFull ? state.mode : "diff";
+  let head = `<div class="file-head">${backButton()}
+    <div class="row"><span class="st st-${STATUS_LETTER[f.status] || "M"}">${STATUS_LETTER[f.status] || "M"}</span><h2>${esc(f.path)}</h2>
+    <span class="stats"><span class="a">+${f.additions}</span> <span class="r">−${f.deletions}</span></span>
+    <span class="chip">${c.confirmed + c.declined}/${c.total} reviewed</span>
+    ${canFull ? `<span class="seg"><button class="${mode === "diff" ? "on" : ""}" data-act="mode" data-mode="diff">Diff</button><button class="${mode === "full" ? "on" : ""}" data-act="mode" data-mode="full">Full file</button></span>` : ""}</div>
+    ${f.old_path ? `<div class="stats">renamed from ${esc(f.old_path)}</div>` : ""}
+    ${f.untracked ? `<div class="stats">untracked file (not yet added to git)</div>` : ""}
+    ${f.summary ? `<div class="summary">${md(f.summary)}</div>` : ""}</div>`;
+  let body = "", placed = new Set();
+  if (f.binary) {
+    body = `<div class="empty">Binary file, contents not shown.</div>`;
+  } else if (f.generated && !state.showGenerated.has(f.path)) {
+    body = `<div class="empty">Generated or lock file, diff hidden. <button class="btn link" data-act="show-generated" data-path="${esc(f.path)}">Show diff</button></div>`;
+  } else if (!f.hunks.length) {
+    body = `<div class="empty">No line changes.</div>`;
+  } else {
+    const r = mode === "full" ? fullBody(f, changes) : diffBody(f, changes);
+    body = `<table class="code">${r.body}</table>`;
+    placed = r.placed;
+  }
+  const notes = changes.filter(x => !placed.has(x.id));
+  return head + `<div class="content">${notes.length ? `<div class="notes-block">${notes.map(cardHtml).join("")}</div>` : ""}${body}</div>`;
+}
+
+function renderContext(f) {
+  const v = state.view;
+  const focus = [];
+  for (const link of DATA.connections[f.path] || []) {
+    for (const back of DATA.connections[link.path] || []) if (back.path === f.path) focus.push(...back.lines);
+  }
+  const via = v.from ? (DATA.connections[v.from] || []).find(x => x.path === f.path) : null;
+  let head = `<div class="file-head">${backButton()}<div class="row"><span class="kind context">context</span><h2>${esc(f.path)}</h2></div>
+    <div class="summary"><p>Unchanged on this branch. Shown because it's connected to the changes${via ? ` (from <code>${esc(v.from)}</code>): ${inline(via.reason)}` : "."}</p></div></div>`;
+  if (f.content == null) return head + `<div class="content"><div class="empty">File too large or binary; not shown.</div></div>`;
+  const lines = f.content.replace(/\n$/, "").split("\n");
+  const lang = langFor(f.path);
+  const inFocus = n => focus.some(([s, e]) => s <= n && n <= e);
+  let rows = "";
+  lines.forEach((t, i) => { rows += rowHtml("ctx", "", i + 1, t, lang, [], inFocus(i + 1) ? " focus-line" : ""); });
+  return head + `<div class="content"><table class="code">${rows}</table></div>`;
+}
+
+function renderOverview() {
+  const m = DATA.meta;
+  const c = countsFor(DATA.changes);
+  let h = `<div class="overview"><h1>Review of ${esc(m.head)}</h1>
+    <div class="meta">Compared with <b>${esc(m.base)}</b> (merge-base <code>${esc(m.merge_base.slice(0, 10))}</code>)${m.include_uncommitted ? ", including uncommitted and untracked changes" : ""}. ${DATA.files.length} files · ${c.total} review items.</div>
+    ${(m.notes || []).map(n => `<div class="concerns">${esc(n)}</div>`).join("")}
+    <div class="text">${md(DATA.overview) || "<p class='empty'>No overview was written.</p>"}</div>`;
+  for (const f of DATA.files) {
+    const list = BY_FILE.get(f.path) || [];
+    h += `<div class="ov-file"><h4><button data-act="open" data-path="${esc(f.path)}">${esc(f.path)}</button> ${fileChip(f.path)}</h4>${f.summary ? `<div class="fs">${inline(f.summary.split("\n")[0])}</div>` : ""}`;
+    for (const x of list) h += miniItem(x);
+    h += `</div>`;
+  }
+  return h + `</div>`;
+}
+
+function miniItem(x) {
+  const d = decision(x.id);
+  return `<button class="mini" data-act="goto" data-id="${esc(x.id)}"><span class="dot ${d.status}"></span><span class="imp imp-${x.importance}">${x.importance[0]}</span><span>${esc(x.title)}</span><span class="ml">${esc(whereLabel(x))}</span></button>`;
+}
+
+function renderMain() {
+  const main = $("main");
+  const v = state.view;
+  let h = state.online || state.finished ? "" : `<div class="banner">Can't reach the i-read-code server, so decisions can't be saved. Ask Claude to restart the review server, then reload this page.</div>`;
+  if (v.kind === "overview") h += renderOverview();
+  else if (v.kind === "file") h += renderFile(FILES.get(v.path));
+  else if (v.kind === "context") h += renderContext(CTX.get(v.path));
+  main.innerHTML = h;
+}
+
+function renderRelated() {
+  const v = state.view;
+  const aside = $("related");
+  let h = "";
+  if (v.kind === "overview") {
+    const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
+    const high = pending.filter(c => c.importance === "high");
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Decline</b>; a decline asks for a reason. Connected files show up here on the right.</div></section>`;
+    if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
+  } else {
+    const links = DATA.connections[v.path] || [];
+    h += `<section><h3>${v.kind === "context" ? "Linked from" : "Connected files"}</h3>`;
+    if (!links.length) h += `<div class="keys">No connected files.</div>`;
+    for (const l of links) {
+      const changed = FILES.has(l.path);
+      h += `<button class="rel" data-act="open" data-path="${esc(l.path)}" data-from="${esc(v.path)}"><div class="rp"><span>${esc(l.path)}</span><span class="kind ${changed ? "changed" : "context"}">${changed ? "changed" : "context"}</span>${changed ? fileChip(l.path) : ""}</div><div class="rr">${inline(l.reason)}</div></button>`;
+    }
+    h += `</section>`;
+    if (v.kind === "file") {
+      const list = BY_FILE.get(v.path) || [];
+      if (list.length) h += `<section><h3>Items in this file</h3>${list.map(miniItem).join("")}</section>`;
+    }
+  }
+  h += `<section><h3>Keys</h3><div class="keys"><kbd>j</kbd>/<kbd>k</kbd> next/prev item · <kbd>c</kbd> confirm · <kbd>d</kbd> decline<br><kbd>n</kbd> next pending anywhere · <kbd>[</kbd>/<kbd>]</kbd> prev/next file · <kbd>b</kbd> back</div></section>`;
+  aside.innerHTML = h;
+}
+
+function renderAll(keepScroll = true) {
+  const main = $("main");
+  const top = main.scrollTop;
+  renderHeader(); renderFiles(); renderMain(); renderRelated();
+  if (keepScroll) main.scrollTop = top;
+  if (state.editing) {
+    const t = $("reason");
+    if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  }
+}
+
+// ---------- navigation ----------
+function navigate(view, push = true) {
+  const cur = state.view;
+  if (push && (cur.kind !== view.kind || cur.path !== view.path)) state.history.push(cur);
+  state.view = view; state.editing = null; state.focus = null;
+  renderAll(false);
+  $("main").scrollTop = 0;
+  if (view.kind === "context") {
+    const first = document.querySelector("tr.focus-line");
+    if (first) first.scrollIntoView({ block: "center" });
+  }
+}
+function openPath(path, from) {
+  if (FILES.has(path)) navigate({ kind: "file", path });
+  else if (CTX.has(path)) navigate({ kind: "context", path, from });
+}
+function goto(id, smooth = true) {
+  const c = CHANGES.get(id);
+  if (!c) return;
+  if (state.view.kind !== "file" || state.view.path !== c.file) navigate({ kind: "file", path: c.file });
+  setFocus(id, smooth);
+}
+function setFocus(id, smooth = true) {
+  state.focus = id;
+  document.querySelectorAll(".card.focused").forEach(el => el.classList.remove("focused"));
+  document.querySelectorAll("tr.hl").forEach(el => el.classList.remove("hl"));
+  if (!id) return;
+  const el = document.querySelector(`[data-card="${CSS.escape(id)}"]`);
+  if (el) {
+    el.classList.add("focused");
+    el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+  }
+  highlightRows(id, true);
+}
+function highlightRows(id, on) {
+  document.querySelectorAll("tr[data-ids]").forEach(tr => {
+    if (tr.dataset.ids.split(" ").includes(id)) tr.classList.toggle("hl", on);
+  });
+}
+function cardsInView() { return [...document.querySelectorAll("[data-card]")].map(el => el.dataset.card); }
+function step(delta) {
+  const ids = cardsInView();
+  if (!ids.length) return;
+  const i = ids.indexOf(state.focus);
+  const next = i < 0 ? (delta > 0 ? 0 : ids.length - 1) : Math.min(ids.length - 1, Math.max(0, i + delta));
+  setFocus(ids[next]);
+}
+function nextPending() {
+  const list = DATA.changes;
+  const start = state.focus ? list.findIndex(c => c.id === state.focus) : -1;
+  for (let k = 1; k <= list.length; k++) {
+    const c = list[(start + k + list.length) % list.length];
+    if (decision(c.id).status === "pending") return goto(c.id);
+  }
+  toast("Nothing pending. Click Finish review when you're done.", false);
+}
+function stepFile(delta) {
+  const paths = DATA.files.map(f => f.path);
+  const i = state.view.kind === "file" ? paths.indexOf(state.view.path) : -1;
+  const j = Math.min(paths.length - 1, Math.max(0, i + delta));
+  if (j !== i) navigate({ kind: "file", path: paths[j] });
+}
+
+// ---------- server ----------
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+function applyState(doc) {
+  state.decisions = {};
+  for (const it of doc.items || []) state.decisions[it.change_id] = { status: it.status, reason: it.reason || "" };
+  state.finished = doc.status === "finished";
+}
+async function decide(id, status, reason = "", advance = false) {
+  try {
+    applyState(await api("/api/decision", { change_id: id, status, reason }));
+    state.editing = null; state.draft = "";
+    renderAll();
+    if (advance) {
+      const ids = cardsInView();
+      const after = ids.slice(ids.indexOf(id) + 1).find(x => decision(x).status === "pending");
+      setFocus(after || id);
+    } else if (state.focus) setFocus(state.focus, false);
+  } catch (e) {
+    toast("Couldn't save: " + e.message);
+  }
+}
+async function finish() {
+  const c = countsFor(DATA.changes);
+  if (c.pending && !confirm(`${c.pending} item(s) are still pending. Finish anyway?`)) return;
+  try {
+    const doc = await api("/api/finish", {});
+    applyState(doc); state.online = false; renderAll();
+    const o = document.createElement("div");
+    o.className = "done-overlay";
+    o.innerHTML = `<div class="box"><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} declined, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
+    document.body.appendChild(o);
+  } catch (e) { toast("Couldn't finish: " + e.message); }
+}
+let toastTimer;
+function toast(msg, bad = true) {
+  document.querySelectorAll(".toast").forEach(t => t.remove());
+  const t = document.createElement("div");
+  t.className = "toast"; if (!bad) t.style.background = "var(--accent)";
+  t.textContent = msg; document.body.appendChild(t);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 3500);
+}
+
+// ---------- events ----------
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+  switch (act) {
+    case "overview": navigate({ kind: "overview" }); break;
+    case "open": openPath(el.dataset.path, el.dataset.from || (state.view.kind !== "overview" ? state.view.path : null)); break;
+    case "goto": goto(id); break;
+    case "back": { const prev = state.history.pop(); if (prev) navigate(prev, false); break; }
+    case "mode": state.mode = el.dataset.mode; renderAll(false); break;
+    case "expand": state.expanded.add(el.dataset.key); renderAll(); break;
+    case "show-generated": state.showGenerated.add(el.dataset.path); renderAll(); break;
+    case "confirm": state.focus = id; decide(id, "confirmed"); break;
+    case "decline": state.focus = id; state.editing = id; state.draft = decision(id).reason || ""; renderAll(); break;
+    case "cancel": state.editing = null; state.draft = ""; renderAll(); break;
+    case "submit-decline": submitDecline(id); break;
+    case "undo": decide(id, "pending"); break;
+    case "next-pending": nextPending(); break;
+    case "finish": finish(); break;
+  }
+});
+function submitDecline(id, advance = false) {
+  const reason = ($("reason") || {}).value || "";
+  if (!reason.trim()) { toast("Add a reason for declining."); $("reason") && $("reason").focus(); return; }
+  decide(id, "declined", reason, advance);
+}
+document.addEventListener("input", e => {
+  if (e.target.id === "filter") { state.filter = e.target.value; renderFiles(); }
+  if (e.target.id === "reason") state.draft = e.target.value;
+});
+document.addEventListener("mouseover", e => {
+  const card = e.target.closest("[data-card]");
+  document.querySelectorAll("tr.hl").forEach(el => { if (!state.focus || !el.dataset.ids.split(" ").includes(state.focus)) el.classList.remove("hl"); });
+  if (card) highlightRows(card.dataset.card, true);
+});
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("textarea, input");
+  if (e.target.id === "reason") {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitDecline(state.editing, true); }
+    if (e.key === "Escape") { state.editing = null; state.draft = ""; renderAll(); }
+    return;
+  }
+  if (typing) { if (e.key === "Escape") e.target.blur(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const f = state.focus;
+  switch (e.key) {
+    case "j": step(1); break;
+    case "k": step(-1); break;
+    case "n": nextPending(); break;
+    case "]": stepFile(1); break;
+    case "[": stepFile(-1); break;
+    case "b": { const prev = state.history.pop(); if (prev) navigate(prev, false); break; }
+    case "c": if (f && state.online) decide(f, "confirmed", "", true); break;
+    case "d": if (f && state.online) { e.preventDefault(); state.editing = f; state.draft = decision(f).reason || ""; renderAll(); } break;
+    default: return;
+  }
+});
+
+(async function init() {
+  try {
+    applyState(await api("/api/state"));
+    state.online = !state.finished;
+  } catch (e) {
+    state.online = false;
+  }
+  renderAll(false);
+})();
+</script>
+</body>
+</html>
