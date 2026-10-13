@@ -134,8 +134,8 @@ aside h3 + * { margin-top: 0; }
 aside section + section { margin-top: 22px; }
 .rel { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
 .rel:hover { border-color: var(--accent); }
-.rel .rp { font: 600 12.5px var(--mono); word-break: break-all; display: flex; gap: 6px; align-items: center; }
-.rel .rp span:first-child { flex: 1; }
+.rel .rp { font: 600 12.5px var(--mono); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.rel .rp span:first-child { flex: 1 1 auto; min-width: 0; }
 .rel .rr { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 .kind { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 4px; flex: none; }
 .kind.changed { background: var(--accent-soft); color: var(--accent); }
@@ -531,7 +531,7 @@ function renderRelated() {
     if (!links.length) h += `<div class="keys">No connected files.</div>`;
     for (const l of links) {
       const changed = FILES.has(l.path);
-      h += `<button class="rel" data-act="open" data-path="${esc(l.path)}" data-from="${esc(v.path)}"><div class="rp"><span>${esc(l.path)}</span><span class="kind ${changed ? "changed" : "context"}">${changed ? "changed" : "context"}</span>${changed ? fileChip(l.path) : ""}</div><div class="rr">${inline(l.reason)}</div></button>`;
+      h += `<button class="rel" data-act="open" data-path="${esc(l.path)}" data-from="${esc(v.path)}"><div class="rp"><span>${esc(l.path).replace(/\//g, "/<wbr>")}</span><span class="kind ${changed ? "changed" : "context"}">${changed ? "changed" : "context"}</span>${changed ? fileChip(l.path) : ""}</div><div class="rr">${inline(l.reason)}</div></button>`;
     }
     h += `</section>`;
     if (v.kind === "file") {
