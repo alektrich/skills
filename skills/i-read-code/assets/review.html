@@ -11,7 +11,7 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --text: #1d2330; --muted: #667085; --border: #dde1e7;
   --accent: #3b5bdb; --accent-soft: #e7ecff;
-  --ok: #1f8a4c; --ok-soft: #e3f5ea; --bad: #c92a2a; --bad-soft: #fdeaea; --warn: #b7791f;
+  --ok: #1f8a4c; --ok-soft: #e3f5ea; --bad: #c92a2a; --bad-soft: #fdeaea; --warn: #b7791f; --orange: #e8590c; --orange-soft: #fff0e6;
   --add-bg: #e9f8ee; --add-mk: #1f8a4c; --del-bg: #fdecec; --del-mk: #c92a2a; --focus-bg: #fff6d6;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
@@ -20,7 +20,7 @@
   :root {
     --bg: #0f1218; --panel: #161a22; --panel-2: #1d222c; --text: #e3e7ee; --muted: #8b94a5; --border: #2a303c;
     --accent: #7b93ff; --accent-soft: #1f2747;
-    --ok: #4cc27f; --ok-soft: #15301f; --bad: #ff6b6b; --bad-soft: #3a1a1c; --warn: #e2b04a;
+    --ok: #4cc27f; --ok-soft: #15301f; --bad: #ff6b6b; --bad-soft: #3a1a1c; --warn: #e2b04a; --orange: #ff922b; --orange-soft: #3a2414;
     --add-bg: #13281b; --add-mk: #4cc27f; --del-bg: #2f1719; --del-mk: #ff6b6b; --focus-bg: #3a3214;
   }
 }
@@ -37,7 +37,7 @@ header.top { height: 52px; display: flex; align-items: center; gap: 16px; paddin
 .progress { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .bar { width: 160px; height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; display: flex; }
 .bar i { display: block; height: 100%; }
-.bar .c { background: var(--ok); } .bar .d { background: var(--bad); }
+.bar .c { background: var(--ok); } .bar .d { background: var(--orange); }
 .save { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .save.off { color: var(--bad); font-weight: 600; }
 
@@ -47,6 +47,8 @@ header.top { height: 52px; display: flex; align-items: center; gap: 16px; paddin
 .btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
 .btn.bad { background: var(--panel); border-color: var(--bad); color: var(--bad); }
 .btn.bad.solid { background: var(--bad); color: #fff; }
+.btn.change { background: var(--panel); border-color: var(--orange); color: var(--orange); }
+.btn.change.solid { background: var(--orange); color: #fff; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn.link { border: none; background: none; color: var(--accent); padding: 2px 4px; }
 
@@ -67,7 +69,12 @@ main.main { padding: 0 0 80px; }
 .st-A { color: var(--ok); } .st-M { color: var(--warn); } .st-D { color: var(--bad); } .st-R, .st-C { color: var(--accent); } .st-ctx { color: var(--muted); }
 .chip { font-size: 11px; padding: 0 6px; border-radius: 99px; background: var(--panel-2); color: var(--muted); flex: none; }
 .chip.done { background: var(--ok-soft); color: var(--ok); }
-.chip.has-bad { background: var(--bad-soft); color: var(--bad); }
+.chip.has-bad { background: var(--orange-soft); color: var(--orange); }
+.imp-filter { display: flex; gap: 6px; margin: 0 0 4px; }
+.imp-filter button { flex: 1; border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 2px 0; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.imp-filter button.on.imp-high { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+.imp-filter button.on.imp-medium { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.imp-filter button.on.imp-low { background: var(--panel-2); color: var(--text); border-color: var(--muted); }
 .filter { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); margin: 8px 0; font: inherit; font-size: 13px; }
 .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 8px 6px; font-weight: 600; }
 
@@ -95,7 +102,7 @@ tr.del { background: var(--del-bg); } tr.del td.mk { color: var(--del-mk); }
 tr.ln td:first-child { border-left: 3px solid transparent; }
 tr.cov.s-pending td:first-child { border-left-color: var(--accent); }
 tr.cov.s-confirmed td:first-child { border-left-color: var(--ok); }
-tr.cov.s-declined td:first-child { border-left-color: var(--bad); }
+tr.cov.s-declined td:first-child { border-left-color: var(--orange); }
 tr.hl td.src, tr.hl td.no { background: var(--focus-bg); }
 tr.focus-line td { background: var(--focus-bg); }
 tr.hunk td { background: var(--panel-2); color: var(--muted); padding: 3px 8px; font-size: 12px; }
@@ -107,7 +114,7 @@ tr.card-row td { padding: 8px 10px; background: var(--bg); font-family: var(--sa
 .card { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 9px; background: var(--panel); padding: 10px 14px; max-width: 880px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .card + .card { margin-top: 10px; }
 .card.s-confirmed { border-left-color: var(--ok); }
-.card.s-declined { border-left-color: var(--bad); }
+.card.s-declined { border-left-color: var(--orange); }
 .card.focused { outline: 2px solid var(--accent); outline-offset: 1px; }
 .card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .card-title { font-weight: 650; }
@@ -122,8 +129,8 @@ tr.card-row td { padding: 8px 10px; background: var(--bg); font-family: var(--sa
 .concerns p { margin: 0; display: inline; }
 .actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .verdict { font-weight: 600; font-size: 13px; }
-.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); }
-.reason { margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: var(--bad-soft); white-space: pre-wrap; font-size: 13px; }
+.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); } .verdict.change { color: var(--orange); }
+.reason { margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: var(--orange-soft); white-space: pre-wrap; font-size: 13px; }
 .decline-form { margin-top: 8px; }
 .decline-form textarea { width: 100%; min-height: 72px; padding: 8px; border-radius: 7px; border: 1px solid var(--bad); background: var(--bg); color: var(--text); font: inherit; resize: vertical; }
 .decline-form .hint { font-size: 12px; color: var(--muted); }
@@ -143,7 +150,7 @@ aside section + section { margin-top: 22px; }
 .mini { display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 5px 6px; border: none; background: none; color: var(--text); text-align: left; border-radius: 6px; font-size: 13px; }
 .mini:hover { background: var(--panel-2); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent); align-self: center; }
-.dot.confirmed { background: var(--ok); } .dot.declined { background: var(--bad); }
+.dot.confirmed { background: var(--ok); } .dot.declined { background: var(--orange); }
 .mini .ml { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; flex: none; }
 .keys { font-size: 12.5px; color: var(--muted); line-height: 1.9; }
 kbd { font: 11px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel-2); color: var(--text); }
@@ -201,6 +208,7 @@ const state = {
   view: { kind: "overview" }, history: [],
   focus: null, editing: null, draft: "", mode: "diff",
   expanded: new Set(), showGenerated: new Set(), filter: "",
+  importance: new Set(["high", "medium", "low"]),
 };
 
 // ---------- helpers ----------
@@ -283,7 +291,7 @@ function renderHeader() {
   $("branch").innerHTML = `<b>${esc(m.head)}</b> vs <b>${esc(m.base)}</b> · merge-base ${esc(m.merge_base.slice(0, 8))}${m.include_uncommitted ? " · incl. uncommitted" : ""}`;
   const c = countsFor(DATA.changes);
   const done = c.confirmed + c.declined;
-  $("count").textContent = `${done} of ${c.total} reviewed${c.declined ? ` · ${c.declined} declined` : ""}`;
+  $("count").textContent = `${done} of ${c.total} reviewed${c.declined ? ` · ${c.declined} changes requested` : ""}`;
   const pct = n => (c.total ? (100 * n / c.total) : 0) + "%";
   $("bar").innerHTML = `<i class="c" style="width:${pct(c.confirmed)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
   const s = $("save");
@@ -299,6 +307,11 @@ function fileChip(path) {
   if (!c.pending) return `<span class="chip done">✓ ${c.total}</span>`;
   return `<span class="chip">${c.confirmed}/${c.total}</span>`;
 }
+// With every level picked, all files show; otherwise only files with an item at a picked level.
+function fileVisible(f) {
+  if (state.importance.size === 3) return true;
+  return (BY_FILE.get(f.path) || []).some(c => state.importance.has(c.importance));
+}
 function pathLabel(p) {
   const [dir, base] = splitPath(p);
   return `<span class="path" title="${esc(p)}"><span><span class="dir">${esc(dir)}</span>${esc(base)}</span></span>`;
@@ -309,8 +322,10 @@ function renderFiles() {
   const q = state.filter.toLowerCase();
   let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st">≡</span><span class="path"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.confirmed + all.declined}/${all.total}</span></button>`;
   h += `<input class="filter" id="filter" placeholder="Filter files…" value="${esc(state.filter)}">`;
-  h += `<div class="section-label">Changed files · ${DATA.files.length}</div>`;
-  for (const f of DATA.files) {
+  h += `<div class="imp-filter">${["high", "medium", "low"].map(lv => `<button class="imp-${lv} ${state.importance.has(lv) ? "on" : ""}" data-act="importance" data-level="${lv}" title="Show files with ${lv}-importance items">${lv}</button>`).join("")}</div>`;
+  const shown = DATA.files.filter(fileVisible);
+  h += `<div class="section-label">Changed files · ${shown.length === DATA.files.length ? shown.length : `${shown.length} of ${DATA.files.length}`}</div>`;
+  for (const f of shown) {
     if (q && !f.path.toLowerCase().includes(q)) continue;
     const L = STATUS_LETTER[f.status] || "M";
     h += `<button class="nav-item ${f.generated ? "gen" : ""} ${v.kind === "file" && v.path === f.path ? "active" : ""}" data-act="open" data-path="${esc(f.path)}" title="${esc(f.path)}"><span class="st st-${L}">${L}</span>${pathLabel(f.path)}${fileChip(f.path)}</button>`;
@@ -334,15 +349,15 @@ function cardHtml(c) {
   const editing = state.editing === c.id;
   let actions;
   if (editing) {
-    actions = `<div class="decline-form"><textarea id="reason" placeholder="Why are you declining this change? What should be different?">${esc(state.draft)}</textarea>
-      <div class="actions"><button class="btn bad solid" data-act="submit-decline" data-id="${esc(c.id)}">Decline</button><button class="btn" data-act="cancel">Cancel</button><span class="hint">⌘/Ctrl+Enter to save · Esc to cancel</span></div></div>`;
+    actions = `<div class="decline-form"><textarea id="reason" placeholder="What should be different about this change?">${esc(state.draft)}</textarea>
+      <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint">⌘/Ctrl+Enter to save · Esc to cancel</span></div></div>`;
   } else if (d.status === "confirmed") {
     actions = `<div class="actions"><span class="verdict ok">✓ Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
   } else if (d.status === "declined") {
-    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict bad">✗ Declined</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
+    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">✎ Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
   } else {
     const dis = state.online ? "" : "disabled";
-    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>Confirm</button><button class="btn bad" data-act="decline" data-id="${esc(c.id)}" ${dis}>Decline</button></div>`;
+    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>Request Change</button></div>`;
   }
   return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
     <div class="card-head"><span class="imp imp-${c.importance}">${c.importance}</span><span class="card-title">${esc(c.title)}</span>${c.auto ? `<span class="auto-tag">added automatically</span>` : ""}<span class="where">${esc(whereLabel(c))}</span></div>
@@ -523,7 +538,7 @@ function renderRelated() {
   if (v.kind === "overview") {
     const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
     const high = pending.filter(c => c.importance === "high");
-    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Decline</b>; a decline asks for a reason. Connected files show up here on the right.</div></section>`;
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.</div></section>`;
     if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
   } else {
     const links = DATA.connections[v.path] || [];
@@ -539,7 +554,7 @@ function renderRelated() {
       if (list.length) h += `<section><h3>Items in this file</h3>${list.map(miniItem).join("")}</section>`;
     }
   }
-  h += `<section><h3>Keys</h3><div class="keys"><kbd>j</kbd>/<kbd>k</kbd> next/prev item · <kbd>c</kbd> confirm · <kbd>d</kbd> decline<br><kbd>n</kbd> next pending anywhere · <kbd>[</kbd>/<kbd>]</kbd> prev/next file · <kbd>b</kbd> back</div></section>`;
+  h += `<section><h3>Keys</h3><div class="keys"><kbd>j</kbd>/<kbd>k</kbd> next/prev item · <kbd>c</kbd> confirm · <kbd>d</kbd> request change<br><kbd>n</kbd> next pending anywhere · <kbd>[</kbd>/<kbd>]</kbd> prev/next file · <kbd>b</kbd> back</div></section>`;
   aside.innerHTML = h;
 }
 
@@ -611,7 +626,7 @@ function nextPending() {
   toast("Nothing pending. Click Finish review when you're done.", false);
 }
 function stepFile(delta) {
-  const paths = DATA.files.map(f => f.path);
+  const paths = DATA.files.filter(fileVisible).map(f => f.path);
   const i = state.view.kind === "file" ? paths.indexOf(state.view.path) : -1;
   const j = Math.min(paths.length - 1, Math.max(0, i + delta));
   if (j !== i) navigate({ kind: "file", path: paths[j] });
@@ -651,7 +666,7 @@ async function finish() {
     applyState(doc); state.online = false; renderAll();
     const o = document.createElement("div");
     o.className = "done-overlay";
-    o.innerHTML = `<div class="box"><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} declined, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
+    o.innerHTML = `<div class="box"><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
     document.body.appendChild(o);
   } catch (e) { toast("Couldn't finish: " + e.message); }
 }
@@ -674,6 +689,11 @@ document.addEventListener("click", e => {
     case "open": openPath(el.dataset.path, el.dataset.from || (state.view.kind !== "overview" ? state.view.path : null)); break;
     case "goto": goto(id); break;
     case "back": { const prev = state.history.pop(); if (prev) navigate(prev, false); break; }
+    case "importance": {
+      const lv = el.dataset.level;
+      if (state.importance.has(lv)) state.importance.delete(lv); else state.importance.add(lv);
+      renderFiles(); break;
+    }
     case "mode": state.mode = el.dataset.mode; renderAll(false); break;
     case "expand": state.expanded.add(el.dataset.key); renderAll(); break;
     case "show-generated": state.showGenerated.add(el.dataset.path); renderAll(); break;
@@ -688,7 +708,7 @@ document.addEventListener("click", e => {
 });
 function submitDecline(id, advance = false) {
   const reason = ($("reason") || {}).value || "";
-  if (!reason.trim()) { toast("Add a reason for declining."); $("reason") && $("reason").focus(); return; }
+  if (!reason.trim()) { toast("Add a reason for the change request."); $("reason") && $("reason").focus(); return; }
   decide(id, "declined", reason, advance);
 }
 document.addEventListener("input", e => {

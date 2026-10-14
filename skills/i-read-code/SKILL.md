@@ -1,6 +1,6 @@
 ---
 name: i-read-code
-description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Confirm or Decline with a reason on each change. Decisions are saved to a local JSON file, then Claude summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
+description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Confirm or Request Change (with a reason) on each change. Decisions are saved to a local JSON file, then Claude summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
 ---
 
 # i-read-code
@@ -75,7 +75,7 @@ Then write `<review-dir>/analysis.json`:
 
 The schema, field by field:
 
-- **changes**: the review items. Each one is a contiguous line range in **one** file, and gets its own Confirm/Decline. Make one item per logical change. Split a hunk that does two unrelated things. Merge adjacent hunks that make one point. Every non-trivial changed line should belong to an item; the build adds "Change without an explanation" items for anything you skip, and those are a failure of your analysis.
+- **changes**: the review items. Each one is a contiguous line range in **one** file, and gets its own Confirm/Request Change. Make one item per logical change. Split a hunk that does two unrelated things. Merge adjacent hunks that make one point. Every non-trivial changed line should belong to an item; the build adds "Change without an explanation" items for anything you skip, and those are a failure of your analysis.
   - `side`: `"new"` with new-file line numbers (the normal case, including modifications that remove lines in between). `"old"` with old line numbers for pure removals. `"file"`, with no start/end, for a whole-file point such as a new file explained as a unit, a deleted file, or a rename.
   - `importance`: `high` for behavior, security, data or API contracts; `medium` for meaningful logic or structure; `low` for renames, formatting, comments, small refactors. Trivial edits can be grouped into one `low` item per file, but they still get an item so the user can sign off.
   - `explanation`: **what changed and what it means**. Cover intent, the behavior difference compared with before, and effects on callers. Don't narrate the syntax ("adds an if statement"); the user can see the code. Write the way you'd brief a colleague who is about to read it. Supports blank-line paragraphs, `- ` bullets, `` `code` `` and `**bold**`.
@@ -106,7 +106,7 @@ python3 "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
 It opens the browser and prints the URL. Then tell the user, briefly:
 
 - The URL, and what's in the review: files, items, how many high-importance items, and anything you flagged in `concerns` that deserves attention first.
-- How the page works: files on the left, explained changes inline with **Confirm** and **Decline** (a decline asks for a reason), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`.
+- How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Confirm** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`.
 - Every click is saved to `<review-dir>/review.json` right away. When they're done, click **Finish review** (or just tell you).
 
 Then stop and wait. Don't start fixing anything while the review is in progress.
