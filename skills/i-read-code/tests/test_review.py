@@ -112,11 +112,16 @@ class ReviewTest(unittest.TestCase):
     def test_bulk_confirm_and_undo(self):
         server, post = self.serve()
         try:
+            post("api/decision", {"change_id": "a", "status": "confirmed"})
             doc = post("api/decisions", {"change_ids": ["b1", "b3"], "status": "confirmed"})
-            self.assertEqual(doc["counts"]["confirmed"], 2)
+            self.assertEqual((doc["counts"]["confirmed"], doc["counts"]["bulk_confirmed"]), (3, 2))
             doc = post("api/decisions", {"change_ids": ["b3"], "status": "pending"})
             items = {i["change_id"]: i for i in doc["items"]}
             self.assertEqual((items["b1"]["status"], items["b3"]["status"]), ("confirmed", "pending"))
+            self.assertEqual({k: v["bulk"] for k, v in items.items()}, {"a": False, "b1": True, "b3": False})
+            # Re-confirming one by one clears the flag.
+            doc = post("api/decision", {"change_id": "b1", "status": "confirmed"})
+            self.assertEqual(doc["counts"]["bulk_confirmed"], 0)
             for bad in ({"change_ids": ["a"], "status": "declined"}, {"change_ids": ["nope"], "status": "confirmed"},
                         {"change_ids": [], "status": "confirmed"}):
                 with self.assertRaises(urllib.error.HTTPError) as err:
@@ -126,7 +131,7 @@ class ReviewTest(unittest.TestCase):
         finally:
             self.stop(server)
         with open(os.path.join(self.out, "review.json")) as fh:
-            self.assertEqual(json.load(fh)["counts"]["confirmed"], 1)
+            self.assertEqual(json.load(fh)["counts"]["confirmed"], 2)
 
     def test_confirm_and_decline_are_saved_to_review_json(self):
         server, post = self.serve()
@@ -146,7 +151,7 @@ class ReviewTest(unittest.TestCase):
             review = json.load(fh)
         items = {i["change_id"]: i for i in review["items"]}
         self.assertEqual(review["status"], "finished")
-        self.assertEqual(review["counts"], {"total": 3, "confirmed": 1, "declined": 1, "pending": 1})
+        self.assertEqual(review["counts"], {"total": 3, "confirmed": 1, "declined": 1, "pending": 1, "bulk_confirmed": 0})
         self.assertEqual(items["a"]["status"], "confirmed")
         declined = items["b1"]
         self.assertEqual((declined["status"], declined["reason"]), ("declined", "Import inside main()"))

@@ -48,7 +48,7 @@ class Review:
         for cid, c in self.changes.items():
             r = saved.get(cid) or {}
             self.items[cid] = {"status": r.get("status", "pending"), "reason": r.get("reason", ""),
-                               "decided_at": r.get("decided_at")}
+                               "decided_at": r.get("decided_at"), "bulk": bool(r.get("bulk"))}
         self.write()
 
     def record(self, cid, change):
@@ -60,6 +60,8 @@ class Review:
             "status": self.items[cid]["status"],
             "reason": self.items[cid]["reason"] if self.items[cid]["status"] == "declined" else "",
             "decided_at": self.items[cid]["decided_at"],
+            # True when confirmed via "Confirm all in file" / "Confirm all <level>", not read one by one.
+            "bulk": self.items[cid]["status"] == "confirmed" and self.items[cid].get("bulk", False),
         }
         if old:
             rec["old_path"] = old
@@ -69,6 +71,7 @@ class Review:
         m = self.data["meta"]
         items = [self.record(cid, c) for cid, c in self.changes.items()]
         counts = {s: sum(1 for i in items if i["status"] == s) for s in STATUSES}
+        counts["bulk_confirmed"] = sum(1 for i in items if i["bulk"])
         counts["total"] = len(items)
         return {
             "tool": "i-read-code", "version": 1, "status": self.status, "updated_at": now(),
@@ -95,7 +98,7 @@ class Review:
             raise ValueError("a declined change needs a reason")
         with self.lock:
             self.items[cid] = {"status": status, "reason": reason if status == "declined" else "",
-                               "decided_at": now() if status != "pending" else None}
+                               "decided_at": now() if status != "pending" else None, "bulk": False}
             self.status = "in_progress"
             return self.write()
 
@@ -111,7 +114,8 @@ class Review:
         with self.lock:
             stamp = now() if status != "pending" else None
             for cid in cids:
-                self.items[cid] = {"status": status, "reason": "", "decided_at": stamp}
+                self.items[cid] = {"status": status, "reason": "", "decided_at": stamp,
+                                   "bulk": status == "confirmed"}
             self.status = "in_progress"
             return self.write()
 

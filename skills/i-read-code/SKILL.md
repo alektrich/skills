@@ -119,16 +119,18 @@ When the user clicks **Finish review**, the server exits and you're notified tha
 {
   "status": "finished",
   "base": "main", "head": "feature/cursor-pagination", "merge_base": "…",
-  "counts": { "total": 14, "confirmed": 11, "declined": 2, "pending": 1 },
+  "counts": { "total": 14, "confirmed": 11, "declined": 2, "pending": 1, "bulk_confirmed": 6 },
   "items": [
     { "change_id": "c1", "file": "src/api/users.py", "side": "new", "start": 42, "end": 67,
       "title": "Paginate GET /users with cursor tokens", "importance": "high",
-      "status": "declined", "reason": "Cap limit at 100 and return 400 for ?page=", "decided_at": "…" }
+      "status": "declined", "reason": "Cap limit at 100 and return 400 for ?page=", "decided_at": "…", "bulk": false }
   ]
 }
 ```
 
-Report back in a few lines: counts, then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
+`bulk: true` means the item was confirmed with "Confirm all in file" or "Confirm all Low/Medium Importance" rather than one by one, so the user may not have read it closely.
+
+Report back in a few lines: counts (say how many confirmations were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
 
 ## Notes
 
