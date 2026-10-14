@@ -13,7 +13,7 @@ Three bundled scripts do the mechanical work (standard library Python 3, no inst
 | --- | --- |
 | `scripts/collect_changes.py` | Finds the base, computes the diff, writes `changes.json` and a line-numbered `diff.txt` |
 | `scripts/build_review.py` | Validates your `analysis.json`, fills gaps, writes `index.html` + `data.json` |
-| `scripts/serve.py` | Serves the page on 127.0.0.1 and writes every decision to `review.json` |
+| `scripts/serve.py` | Serves the page on 127.0.0.1, writes every decision to `review.json`, and answers questions from the page with a fork of this session |
 
 ## 0. Pick the Python command
 
@@ -122,10 +122,13 @@ Start the server **in the background** (Bash with `run_in_background: true`), be
 PY "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
 ```
 
-It opens the browser and prints the URL. Then tell the user, briefly:
+It opens the browser and prints the URL. Start it from this session's Bash tool rather than having the user run it: the server reads this session's id from `CLAUDE_CODE_SESSION_ID`, saves it to `review.json` as `session_id`, and answers questions from the page with `claude -p` **forked from this session**, so the answers know everything you learned writing the analysis. Its third line of output says which session it forks, or that questions are off because `claude` isn't on PATH. If the env var is missing, pass `--session <id>`.
+
+Then tell the user, briefly:
 
 - The URL, and what's in the review: files, items, how many high-importance items, and anything you flagged in `concerns` that deserves attention first.
 - How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Confirm** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`. For speed, each file has **Confirm all in file** (`Shift+C`) and the left bar has **Confirm all Low/Medium Importance**; bulk actions only touch pending items, never high-importance ones from the sidebar, and can be undone from the toast.
+- **Ask Claude** on any change (key `a`), or the box on the overview for branch-wide questions. Each change keeps its own thread with follow-ups. The answering session can read and search the code but can't edit anything or run commands. Answers take a few seconds and count toward their Claude usage.
 - Every click is saved to `<review-dir>/review.json` right away. When they're done, click **Finish review** (or just tell you).
 
 Then stop and wait. Don't start fixing anything while the review is in progress.
@@ -149,10 +152,13 @@ When the user clicks **Finish review**, the server exits and you're notified tha
 
 `bulk: true` means the item was confirmed with "Confirm all in file" or "Confirm all Low/Medium Importance" rather than one by one, so the user may not have read it closely.
 
-Report back in a few lines: counts (say how many confirmations were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
+`questions` holds the threads from the page: `{ "thread": "c1" | "general", "change_id", "file", "start", "end", "title", "session_id", "messages": [{ "question", "answer", "asked_at" }] }`. You didn't see these conversations, so read them. A question often points at something unclear or wrong, and an answer may have promised a fix ("changes are made after the review").
+
+Report back in a few lines: counts (say how many confirmations were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending, then any question whose answer exposed a problem the user didn't turn into a change request. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
 
 ## Notes
 
 - The page loads syntax highlighting from cdnjs. Offline, it falls back to plain text and still works.
 - `review.json` is the record of the review. The rest of `<review-dir>` (`changes.json`, `diff.txt`, `data.json`, `index.html`) is regenerated on every run.
+- Each question thread is a saved Claude Code session (it shows up in `claude --resume`). The first question in a thread forks this session; follow-ups resume that fork. Resuming a review in a new session forks the new one; old threads keep their own forks.
 - If port 8765 is busy, the server picks the next free one. If the browser didn't open, give the user the printed URL.

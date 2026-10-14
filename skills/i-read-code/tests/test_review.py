@@ -54,6 +54,26 @@ ANALYSIS = {
 }
 
 
+# Mimics `claude -p --output-format stream-json`: a fork gets a new session id, a resume keeps it.
+FAKE_CLAUDE = r'''
+import json, os, sys
+args, prompt = sys.argv[1:], sys.stdin.read()
+with open(os.environ["FAKE_CLAUDE_LOG"], "a") as fh:
+    fh.write(json.dumps({"args": args, "prompt": prompt}) + "\n")
+if "fail please" in prompt:
+    sys.exit("boom")
+resume = args[args.index("--resume") + 1] if "--resume" in args else None
+sid = "fork-1" if "--fork-session" in args else resume or "fresh-1"
+def out(event):
+    print(json.dumps(event), flush=True)
+out({"type": "system", "subtype": "init", "session_id": sid})
+out({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read", "input": {"file_path": "/repo/b.py"}}]}})
+for part in ("It ", "imports os."):
+    out({"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": part}}})
+out({"type": "result", "subtype": "success", "is_error": False, "session_id": sid, "result": "It imports os."})
+'''
+
+
 class ReviewTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -90,12 +110,13 @@ class ReviewTest(unittest.TestCase):
         gaps = [(c["file"], c["start"], c["end"]) for c in data["changes"] if c["title"] == GAP_TITLE]
         self.assertEqual(gaps, [("b.py", 3, 3)])
 
-    def serve(self):
+    def serve(self, *extra, env=None):
         server = subprocess.Popen(
-            [sys.executable, os.path.join(SCRIPTS, "serve.py"), "--dir", self.out, "--no-open"],
-            stdout=subprocess.PIPE, text=True,
+            [sys.executable, os.path.join(SCRIPTS, "serve.py"), "--dir", self.out, "--no-open", *extra],
+            stdout=subprocess.PIPE, text=True, env=env,
         )
         url = server.stdout.readline().split("Review page: ")[1].strip()
+        self.url = url
 
         def post(path, body):
             req = urllib.request.Request(url + path, data=json.dumps(body).encode(),
@@ -104,9 +125,97 @@ class ReviewTest(unittest.TestCase):
 
         return server, post
 
+    def ask(self, body):
+        """POST api/ask and return the streamed events."""
+        req = urllib.request.Request(self.url + "api/ask", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return [json.loads(line) for line in res if line.strip()]
+
+    def state(self):
+        return json.load(urllib.request.urlopen(self.url + "api/state", timeout=5))
+
+    def fake_claude(self):
+        """A stand-in for the claude CLI that logs each call and streams a canned answer."""
+        path = os.path.join(self.tmp.name, "claude")
+        with open(path, "w") as fh:
+            fh.write(f"#!{sys.executable}\n" + FAKE_CLAUDE)
+        os.chmod(path, 0o755)
+        self.claude_log = os.path.join(self.tmp.name, "claude-calls.jsonl")
+        return path
+
+    def claude_calls(self):
+        with open(self.claude_log) as fh:
+            return [json.loads(line) for line in fh]
+
+    def test_questions_fork_the_main_session_then_resume_their_thread(self):
+        claude = self.fake_claude()
+        env = dict(os.environ, CLAUDE_CODE_SESSION_ID="main-1", FAKE_CLAUDE_LOG=self.claude_log)
+        server, _ = self.serve("--claude", claude, env=env)
+        try:
+            self.assertEqual(self.state()["ask"], {"available": True, "forked": True})
+            events = self.ask({"change_id": "b1", "question": "Why import os?"})
+            self.assertEqual([e["type"] for e in events], ["status", "text", "text", "done"])
+            self.assertEqual(events[0]["status"], "Reading b.py")
+            self.assertEqual(events[-1]["thread"]["messages"][0]["answer"], "It imports os.")
+            self.ask({"change_id": "b1", "question": "And later?"})
+            self.ask({"change_id": None, "question": "What does the branch do?"})
+            failed = self.ask({"change_id": "b3", "question": "fail please"})
+            self.assertEqual(failed[-1], {"type": "error", "error": "boom"})
+            for bad in ({"change_id": "b1", "question": "  "}, {"change_id": "nope", "question": "Why?"}):
+                with self.assertRaises(urllib.error.HTTPError) as err:
+                    self.ask(bad)
+                self.assertEqual(err.exception.code, 400)
+                err.exception.close()
+        finally:
+            self.stop(server)
+
+        first, follow, general, _ = self.claude_calls()
+        # The first question in a thread forks the main session and carries the item's context.
+        self.assertIn("--fork-session", first["args"])
+        self.assertEqual(first["args"][first["args"].index("--resume") + 1], "main-1")
+        self.assertEqual(first["args"][first["args"].index("--tools") + 1:][:3], ["Read", "Grep", "Glob"])
+        self.assertIn("b.py", first["prompt"])
+        self.assertIn("Imports os.", first["prompt"])
+        # A follow-up resumes that thread's fork.
+        self.assertNotIn("--fork-session", follow["args"])
+        self.assertEqual(follow["args"][follow["args"].index("--resume") + 1], "fork-1")
+        self.assertTrue(follow["prompt"].startswith("[Follow-up"))
+        self.assertIn("--fork-session", general["args"])
+
+        with open(os.path.join(self.out, "review.json")) as fh:
+            review = json.load(fh)
+        self.assertEqual(review["session_id"], "main-1")
+        threads = {t["thread"]: t for t in review["questions"]}
+        self.assertEqual(set(threads), {"b1", "general"}, "a failed answer must not be saved")
+        self.assertEqual((threads["b1"]["file"], threads["b1"]["session_id"]), ("b.py", "fork-1"))
+        self.assertEqual([m["question"] for m in threads["b1"]["messages"]], ["Why import os?", "And later?"])
+
+        # A restarted server, even one without the env var, keeps the session and the threads.
+        env.pop("CLAUDE_CODE_SESSION_ID")
+        server, _ = self.serve("--claude", claude, env=env)
+        try:
+            state = self.state()
+            self.assertEqual(state["session_id"], "main-1")
+            self.assertEqual(len(state["questions"]), 2)
+        finally:
+            self.stop(server)
+
+    def test_questions_are_off_without_the_claude_cli(self):
+        server, _ = self.serve("--claude", os.path.join(self.tmp.name, "no-such-claude"))
+        try:
+            self.assertFalse(self.state()["ask"]["available"])
+            with self.assertRaises(urllib.error.HTTPError) as err:
+                self.ask({"change_id": "a", "question": "Why?"})
+            self.assertEqual(err.exception.code, 503)
+            err.exception.close()
+        finally:
+            self.stop(server)
+
     def stop(self, server):
         if server.poll() is None:
             server.kill()
+        server.wait()
         server.stdout.close()
 
     def test_bulk_confirm_and_undo(self):

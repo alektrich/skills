@@ -213,6 +213,27 @@ tr.card-row td { padding: 10px 12px; background: var(--bg); font-family: var(--s
 .decline-form .hint { font-size: 12px; color: var(--muted); }
 .notes-block { margin-bottom: 14px; }
 
+/* ---------- questions to Claude ---------- */
+.actions .ask-btn { margin-left: auto; }
+.ask { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-strong); max-width: 78ch; }
+.qa + .qa, .qa + .ask-form { margin-top: 14px; }
+.qa .q { display: inline-block; max-width: 100%; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
+.qa .a { margin-top: 6px; font-size: 13.5px; overflow-wrap: anywhere; }
+.qa .a p { margin: 6px 0; } .qa .a ul, .qa .a ol { margin: 6px 0; padding-left: 20px; }
+.qa .a .ans-h { font-weight: 600; margin-top: 10px; }
+.ans-code { margin: 8px 0; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); font: 12px/1.55 var(--mono); overflow-x: auto; white-space: pre; }
+.ans-code code { background: none; border: none; padding: 0; font-size: inherit; }
+.ask-form label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.ask-form textarea { width: 100%; min-height: 64px; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); font: inherit; resize: vertical; transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.ask-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ask-form .hint, .ask-note { font-size: 12px; color: var(--muted); }
+.ask-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+.spin { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ov-ask { margin-top: 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 12px 16px; box-shadow: var(--shadow-sm); }
+.ov-ask h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14.5px; }
+.ov-ask .ask { border-top: none; margin-top: 4px; padding-top: 0; }
+
 /* ---------- right pane ---------- */
 aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
 aside section + section { margin-top: 24px; }
@@ -288,7 +309,8 @@ kbd { display: inline-block; min-width: 20px; text-align: center; font: 500 11px
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol>
-  <symbol id="i-alert"viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
 </svg>
 <header class="top">
   <span class="brand"><span class="logo"><svg class="ic sm" aria-hidden="true"><use href="#i-eye"/></svg></span>i-read-code</span>
@@ -327,7 +349,10 @@ const state = {
   focus: null, editing: null, draft: "", mode: "diff",
   expanded: new Set(), showGenerated: new Set(), filter: "",
   importance: new Set(["high", "medium", "low"]),
+  // Questions: thread id is a change id or GENERAL; live holds the answer streaming in per thread.
+  ask: { available: false, forked: false }, threads: {}, askOpen: new Set(), askDraft: {}, live: {},
 };
+const GENERAL = "general";
 
 // ---------- helpers ----------
 function esc(s) {
@@ -345,6 +370,39 @@ function md(src) {
     }
     return "<p>" + lines.map(inline).join("<br>") + "</p>";
   }).join("");
+}
+// Claude's answers use more Markdown than explanations do: fenced code, headings, numbered lists,
+// lists right under a line of text. An unclosed fence (mid-stream) renders as code so far.
+function richMd(src) {
+  src = String(src || "");
+  let out = "", last = 0;
+  for (const m of src.matchAll(/```([\w+#.-]*)[^\n]*\n([\s\S]*?)(?:\n?```|$)/g)) {
+    out += textMd(src.slice(last, m.index));
+    const name = LANG_ALIAS[m[1].toLowerCase()] || m[1].toLowerCase();
+    out += `<pre class="ans-code"><code>${code(m[2].replace(/\s+$/, ""),HL && name && HL.getLanguage(name) ? name : null)}</code></pre>`;
+    last = m.index + m[0].length;
+  }
+  return out + textMd(src.slice(last));
+}
+function textMd(src) {
+  let h = "", para = [], list = null;
+  const flushPara = () => { if (para.length) h += "<p>" + para.map(inline).join("<br>") + "</p>"; para = []; };
+  const flushList = () => { if (list) h += `<${list.tag}>${list.items.map(i => "<li>" + inline(i) + "</li>").join("")}</${list.tag}>`; list = null; };
+  for (const raw of src.split("\n")) {
+    const line = raw.trim();
+    let m;
+    if (!line) { flushPara(); flushList(); }
+    else if ((m = line.match(/^#{1,6}\s+(.*)/))) { flushPara(); flushList(); h += `<p class="ans-h">${inline(m[1])}</p>`; }
+    else if ((m = raw.match(/^\s*(?:[-*]|(\d+)[.)])\s+(.*)/))) {
+      flushPara();
+      const tag = m[1] ? "ol" : "ul";
+      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+      list.items.push(m[2]);
+    } else if (list && /^\s/.test(raw)) list.items[list.items.length - 1] += " " + line;
+    else { flushList(); para.push(line); }
+  }
+  flushPara(); flushList();
+  return h;
 }
 const ic = (name, size = "sm") => `<svg class="ic ${size}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const LANG_ALIAS = { htm: "xml", html: "xml", vue: "xml", svelte: "xml", svg: "xml", jsx: "javascript", mjs: "javascript", cjs: "javascript", tsx: "typescript", yml: "yaml", h: "c", hpp: "cpp", cc: "cpp", kt: "kotlin", rs: "rust", rb: "ruby", py: "python", sh: "bash", zsh: "bash", md: "markdown", tf: "ini", toml: "ini" };
@@ -503,23 +561,99 @@ function renderFiles() {
 function cardHtml(c) {
   const d = decision(c.id);
   const editing = state.editing === c.id;
+  const askBtn = askButton(c.id);
   let actions;
   if (editing) {
     actions = `<div class="decline-form"><label for="reason">What should be different?</label><textarea id="reason" placeholder="Describe the change you want…">${esc(state.draft)}</textarea>
       <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">${ic("pencil")}Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel</span></div></div>`;
   } else if (d.status === "confirmed") {
-    actions = `<div class="actions"><span class="verdict ok">${ic("check")}Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button></div>`;
+    actions = `<div class="actions"><span class="verdict ok">${ic("check")}Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else if (d.status === "declined") {
-    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">${ic("pencil")}Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button></div>`;
+    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">${ic("pencil")}Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else {
     const dis = state.online ? "" : "disabled";
-    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>${ic("check")}Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button></div>`;
+    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>${ic("check")}Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button>${askBtn}</div>`;
   }
+  const askOpen = state.ask.available && (state.askOpen.has(c.id) || state.live[c.id]);
   return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
     <div class="card-head"><span class="imp imp-${c.importance}">${c.importance}</span><span class="card-title">${esc(c.title)}</span>${c.auto ? `<span class="auto-tag">added automatically</span>` : ""}<span class="where">${esc(whereLabel(c))}</span></div>
     <div class="expl">${md(c.explanation)}</div>
     ${c.concerns ? `<div class="concerns">${ic("alert")}<div><strong>Worth checking:</strong> ${md(c.concerns)}</div></div>` : ""}
-    ${actions}</div>`;
+    ${actions}${askOpen ? askPanel(c.id) : ""}</div>`;
+}
+
+// ---------- questions to Claude ----------
+function askButton(id) {
+  if (!state.ask.available) return "";
+  const n = (state.threads[id] || []).length;
+  const open = state.askOpen.has(id);
+  return `<button class="btn link ask-btn" data-act="ask" data-id="${esc(id)}" aria-expanded="${open}" title="Ask Claude about this change (a)" ${state.online ? "" : "disabled"}>${ic("message")}${open ? "Hide questions" : "Ask Claude"}${n ? `<span class="count">${n}</span>` : ""}</button>`;
+}
+function liveHtml(live) {
+  return `${richMd(live.text)}<div class="ask-status" role="status"><span class="spin" aria-hidden="true"></span>${esc(live.status || "Writing…")}</div>`;
+}
+function askPanel(tid) {
+  const live = state.live[tid];
+  let h = `<div class="ask">`;
+  for (const m of state.threads[tid] || []) {
+    h += `<div class="qa"><div class="q">${esc(m.question)}</div><div class="a">${richMd(m.answer)}</div></div>`;
+  }
+  if (live) {
+    h += `<div class="qa"><div class="q">${esc(live.question)}</div><div class="a" data-live="${esc(tid)}">${liveHtml(live)}</div></div>`;
+  } else {
+    const first = !(state.threads[tid] || []).length;
+    const label = first ? (tid === GENERAL ? "Your question" : "Ask Claude about this change") : "Follow-up question";
+    const inputId = "ask-" + tid;
+    h += `<div class="ask-form"><label for="${esc(inputId)}">${label}</label><textarea id="${esc(inputId)}" data-ask-input="${esc(tid)}" placeholder="${first ? "Why is it done this way? What calls this? Is X handled?" : "Ask a follow-up…"}" ${state.online ? "" : "disabled"}>${esc(state.askDraft[tid] || "")}</textarea>
+      <div class="actions"><button class="btn primary" data-act="ask-submit" data-id="${esc(tid)}" ${state.online ? "" : "disabled"}>${ic("message")}Ask</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> send${tid === GENERAL ? "" : " · <kbd>Esc</kbd> close"}</span></div>
+      ${first && !state.ask.forked ? `<div class="ask-note">Answers come from a new Claude session that can read the code but didn't write this review.</div>` : ""}</div>`;
+  }
+  return h + `</div>`;
+}
+function paintLive(tid) {
+  const el = document.querySelector(`[data-live="${CSS.escape(tid)}"]`);
+  if (el && state.live[tid]) el.innerHTML = liveHtml(state.live[tid]);
+}
+function openAsk(id) {
+  state.askOpen.add(id);
+  renderAll();
+  const t = document.querySelector(`[data-ask-input="${CSS.escape(id)}"]`);
+  if (t) { t.focus(); t.scrollIntoView({ block: "nearest" }); }
+}
+async function ask(tid) {
+  const question = (state.askDraft[tid] || "").trim();
+  if (!question || state.live[tid] || !state.online) return;
+  const live = state.live[tid] = { question, text: "", status: "Thinking…" };
+  state.askDraft[tid] = "";
+  renderAll();
+  try {
+    const res = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ change_id: tid === GENERAL ? null : tid, question }) });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "", done = false;
+    for (;;) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === "text") { live.text += ev.text; live.status = ""; }
+        else if (ev.type === "status") live.status = ev.status + "…";
+        else if (ev.type === "error") throw new Error(ev.error);
+        else if (ev.type === "done") { state.threads[tid] = ev.thread.messages; done = true; }
+        paintLive(tid);
+      }
+    }
+    if (!done) throw new Error("the answer stopped before it finished");
+  } catch (e) {
+    state.askDraft[tid] = state.askDraft[tid] || question;
+    toast("Couldn't get an answer: " + e.message);
+  }
+  delete state.live[tid];
+  renderAll();
 }
 const cardRow = cards => cards.length ? `<tr class="card-row"><td colspan="4">${cards.map(cardHtml).join("")}</td></tr>` : "";
 
@@ -673,6 +807,7 @@ function renderOverview() {
       <div class="stat change"><div class="n">${c.declined}</div><div class="l">Changes requested</div></div>
     </div>
     <div class="text">${md(DATA.overview) || "<p class='empty'>No overview was written.</p>"}</div>`;
+  if (state.ask.available) h += `<section class="ov-ask"><h3>${ic("message")}Ask about this branch</h3>${askPanel(GENERAL)}</section>`;
   for (const f of DATA.files) {
     const list = BY_FILE.get(f.path) || [];
     h += `<div class="ov-file"><h4><button data-act="open" data-path="${esc(f.path)}">${esc(f.path)}</button> ${fileChip(f.path)}</h4>${f.summary ? `<div class="fs">${inline(f.summary.split("\n")[0])}</div>` : ""}`;
@@ -704,7 +839,7 @@ function renderRelated() {
   if (v.kind === "overview") {
     const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
     const high = pending.filter(c => c.importance === "high");
-    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.</div></section>`;
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Claude</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
     if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
   } else {
     const links = DATA.connections[v.path] || [];
@@ -724,6 +859,7 @@ function renderRelated() {
     <span><kbd>j</kbd> <kbd>k</kbd></span><span>next / previous item</span>
     <span><kbd>c</kbd></span><span>confirm</span>
     <span><kbd>d</kbd></span><span>request change</span>
+    ${state.ask.available ? `<span><kbd>a</kbd></span><span>ask Claude about it</span>` : ""}
     <span><kbd>⇧</kbd> <kbd>C</kbd></span><span>confirm all in file</span>
     <span><kbd>n</kbd></span><span>next pending anywhere</span>
     <span><kbd>[</kbd> <kbd>]</kbd></span><span>previous / next file</span>
@@ -735,11 +871,17 @@ function renderRelated() {
 function renderAll(keepScroll = true) {
   const main = $("main");
   const top = main.scrollTop;
+  const a = document.activeElement;
+  const askFocus = a && a.dataset && a.dataset.askInput;
+  const askPos = askFocus ? a.selectionStart : 0;
   renderHeader(); renderFiles(); renderMain(); renderRelated();
   if (keepScroll) main.scrollTop = top;
   if (state.editing) {
     const t = $("reason");
     if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  } else if (askFocus) {
+    const t = document.querySelector(`[data-ask-input="${CSS.escape(askFocus)}"]`);
+    if (t) { t.focus(); t.setSelectionRange(askPos, askPos); }
   }
 }
 
@@ -817,6 +959,9 @@ function applyState(doc) {
   state.decisions = {};
   for (const it of doc.items || []) state.decisions[it.change_id] = { status: it.status, reason: it.reason || "" };
   state.finished = doc.status === "finished";
+  state.threads = {};
+  for (const t of doc.questions || []) state.threads[t.thread] = t.messages || [];
+  if (doc.ask) state.ask = doc.ask;
 }
 async function decide(id, status, reason = "", advance = false) {
   try {
@@ -914,6 +1059,10 @@ document.addEventListener("click", e => {
     case "next-pending": nextPending(); break;
     case "finish": finish(); break;
     case "theme": cycleTheme(); break;
+    case "ask":
+      if (state.askOpen.has(id)) { state.askOpen.delete(id); renderAll(); } else { state.focus = id; openAsk(id); }
+      break;
+    case "ask-submit": ask(id); break;
   }
 });
 function submitDecline(id, advance = false) {
@@ -924,6 +1073,7 @@ function submitDecline(id, advance = false) {
 document.addEventListener("input", e => {
   if (e.target.id === "filter") { state.filter = e.target.value; renderFiles(); }
   if (e.target.id === "reason") state.draft = e.target.value;
+  if (e.target.dataset.askInput) state.askDraft[e.target.dataset.askInput] = e.target.value;
 });
 document.addEventListener("mouseover", e => {
   const card = e.target.closest("[data-card]");
@@ -935,6 +1085,15 @@ document.addEventListener("keydown", e => {
   if (e.target.id === "reason") {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitDecline(state.editing, true); }
     if (e.key === "Escape") { state.editing = null; state.draft = ""; renderAll(); }
+    return;
+  }
+  const askId = e.target.dataset.askInput;
+  if (askId) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); ask(askId); }
+    if (e.key === "Escape") {
+      e.target.blur();
+      if (askId !== GENERAL) { state.askOpen.delete(askId); renderAll(); setFocus(askId, false); }
+    }
     return;
   }
   if (typing) { if (e.key === "Escape") e.target.blur(); return; }
@@ -950,6 +1109,7 @@ document.addEventListener("keydown", e => {
     case "c": if (f && state.online) decide(f, "confirmed", "", true); break;
     case "C": if (state.view.kind === "file") confirmFile(state.view.path); break;
     case "t": cycleTheme(); break;
+    case "a": if (f && state.online && state.ask.available) { e.preventDefault(); openAsk(f); } break;
     case "d": if (f && state.online) { e.preventDefault(); state.editing = f; state.draft = decision(f).reason || ""; renderAll(); } break;
     default: return;
   }
