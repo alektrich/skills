@@ -213,7 +213,7 @@ tr.card-row td { padding: 10px 12px; background: var(--bg); font-family: var(--s
 .decline-form .hint { font-size: 12px; color: var(--muted); }
 .notes-block { margin-bottom: 14px; }
 
-/* ---------- questions to Claude ---------- */
+/* ---------- questions to the agent ---------- */
 .actions .ask-btn { margin-left: auto; }
 .ask { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-strong); max-width: 78ch; }
 .qa + .qa, .qa + .ask-form { margin-top: 14px; }
@@ -371,7 +371,7 @@ function md(src) {
     return "<p>" + lines.map(inline).join("<br>") + "</p>";
   }).join("");
 }
-// Claude's answers use more Markdown than explanations do: fenced code, headings, numbered lists,
+// The agent's answers use more Markdown than explanations do: fenced code, headings, numbered lists,
 // lists right under a line of text. An unclosed fence (mid-stream) renders as code so far.
 function richMd(src) {
   src = String(src || "");
@@ -582,12 +582,12 @@ function cardHtml(c) {
     ${actions}${askOpen ? askPanel(c.id) : ""}</div>`;
 }
 
-// ---------- questions to Claude ----------
+// ---------- questions to the agent ----------
 function askButton(id) {
   if (!state.ask.available) return "";
   const n = (state.threads[id] || []).length;
   const open = state.askOpen.has(id);
-  return `<button class="btn link ask-btn" data-act="ask" data-id="${esc(id)}" aria-expanded="${open}" title="Ask Claude about this change (a)" ${state.online ? "" : "disabled"}>${ic("message")}${open ? "Hide questions" : "Ask Claude"}${n ? `<span class="count">${n}</span>` : ""}</button>`;
+  return `<button class="btn link ask-btn" data-act="ask" data-id="${esc(id)}" aria-expanded="${open}" title="Ask the agent about this change (a)" ${state.online ? "" : "disabled"}>${ic("message")}${open ? "Hide questions" : "Ask Agent"}${n ? `<span class="count">${n}</span>` : ""}</button>`;
 }
 function liveHtml(live) {
   return `${richMd(live.text)}<div class="ask-status" role="status"><span class="spin" aria-hidden="true"></span>${esc(live.status || "Writing…")}</div>`;
@@ -602,11 +602,11 @@ function askPanel(tid) {
     h += `<div class="qa"><div class="q">${esc(live.question)}</div><div class="a" data-live="${esc(tid)}">${liveHtml(live)}</div></div>`;
   } else {
     const first = !(state.threads[tid] || []).length;
-    const label = first ? (tid === GENERAL ? "Your question" : "Ask Claude about this change") : "Follow-up question";
+    const label = first ? (tid === GENERAL ? "Your question" : "Ask the agent about this change") : "Follow-up question";
     const inputId = "ask-" + tid;
     h += `<div class="ask-form"><label for="${esc(inputId)}">${label}</label><textarea id="${esc(inputId)}" data-ask-input="${esc(tid)}" placeholder="${first ? "Why is it done this way? What calls this? Is X handled?" : "Ask a follow-up…"}" ${state.online ? "" : "disabled"}>${esc(state.askDraft[tid] || "")}</textarea>
       <div class="actions"><button class="btn primary" data-act="ask-submit" data-id="${esc(tid)}" ${state.online ? "" : "disabled"}>${ic("message")}Ask</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> send${tid === GENERAL ? "" : " · <kbd>Esc</kbd> close"}</span></div>
-      ${first && !state.ask.forked ? `<div class="ask-note">Answers come from a new Claude session that can read the code but didn't write this review.</div>` : ""}</div>`;
+      ${first && !state.ask.forked ? `<div class="ask-note">Answers come from a new ${esc(state.ask.agent || "agent")} session that can read the code and gets the review's overview, but didn't write it.</div>` : ""}</div>`;
   }
   return h + `</div>`;
 }
@@ -825,7 +825,7 @@ function miniItem(x) {
 function renderMain() {
   const main = $("main");
   const v = state.view;
-  let h = state.online || state.finished ? "" : `<div class="banner" role="alert">${ic("alert")}<div>Can't reach the i-read-code server, so decisions can't be saved. Ask Claude to restart the review server, then reload this page.</div></div>`;
+  let h = state.online || state.finished ? "" : `<div class="banner" role="alert">${ic("alert")}<div>Can't reach the i-read-code server, so decisions can't be saved. Ask your agent to restart the review server, then reload this page.</div></div>`;
   if (v.kind === "overview") h += renderOverview();
   else if (v.kind === "file") h += renderFile(FILES.get(v.path));
   else if (v.kind === "context") h += renderContext(CTX.get(v.path));
@@ -839,7 +839,7 @@ function renderRelated() {
   if (v.kind === "overview") {
     const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
     const high = pending.filter(c => c.importance === "high");
-    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Approve</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Claude</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Approve</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Agent</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
     if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
   } else {
     const links = DATA.connections[v.path] || [];
@@ -859,7 +859,7 @@ function renderRelated() {
     <span><kbd>j</kbd> <kbd>k</kbd></span><span>next / previous item</span>
     <span><kbd>c</kbd></span><span>approve</span>
     <span><kbd>d</kbd></span><span>request change</span>
-    ${state.ask.available ? `<span><kbd>a</kbd></span><span>ask Claude about it</span>` : ""}
+    ${state.ask.available ? `<span><kbd>a</kbd></span><span>ask the agent about it</span>` : ""}
     <span><kbd>⇧</kbd> <kbd>C</kbd></span><span>approve all in file</span>
     <span><kbd>n</kbd></span><span>next pending anywhere</span>
     <span><kbd>[</kbd> <kbd>]</kbd></span><span>previous / next file</span>
@@ -1009,7 +1009,7 @@ async function finish() {
     const o = document.createElement("div");
     o.className = "done-overlay";
     o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true");
-    o.innerHTML = `<div class="box"><div class="badge">${ic("check", "")}</div><h2>Review saved</h2><p>${doc.counts.approved} approved, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
+    o.innerHTML = `<div class="box"><div class="badge">${ic("check", "")}</div><h2>Review saved</h2><p>${doc.counts.approved} approved, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to your agent; it will pick up the review from there.</p></div>`;
     document.body.appendChild(o);
   } catch (e) { toast("Couldn't finish: " + e.message); }
 }

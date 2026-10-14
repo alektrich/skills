@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Serve the review page and save every decision to <dir>/review.json.
 
-  python3 serve.py --dir <review-dir> [--port N] [--no-open] [--session ID] [--claude CMD]
+  python3 serve.py --dir <review-dir> [--port N] [--no-open] [--agent claude|cursor] [--cli CMD] [--session ID]
+  python3 serve.py --dir <review-dir> --finish
 
 Listens on 127.0.0.1 only. Each Approve/Decline (and each bulk approve) is written to review.json
 immediately (atomic replace), so closing the browser loses nothing; restarting
@@ -9,18 +10,21 @@ the server resumes from the saved file. The process exits when the reviewer
 clicks "Finish review", which lets whoever started it in the background know
 the review is done. Standard library only.
 
-Questions typed into the page are answered by `claude -p`, forked from the
-Claude Code session that wrote the review (CLAUDE_CODE_SESSION_ID, which a
-server started from that session inherits), so the answer knows the analysis.
-Each change gets its own thread; follow-ups resume that thread's fork. The
-fork can only Read, Grep and Glob. Threads are saved to review.json.
+Questions typed into the page are answered by the coding agent that started
+the server (Claude Code or Cursor, see agents.py), read-only. Claude forks the
+session that wrote the review (CLAUDE_CODE_SESSION_ID, which a server started
+from that session inherits), so the answer knows the analysis; Cursor starts a
+new chat whose prompt carries the analysis. Each change gets its own thread;
+follow-ups resume it. Threads are saved to review.json, and every session the
+server starts is listed under agent_sessions. Finishing the review deletes
+those sessions; --finish does the same for a server that was stopped instead
+of finished from the page.
 """
 
 import argparse
 import datetime
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
@@ -29,17 +33,11 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import agents
+
 STATUSES = ("pending", "approved", "declined")
 GENERAL = "general"  # thread id for questions about the branch as a whole
-ASK_TIMEOUT = 600  # seconds before a stuck `claude` process is killed
-ASK_TOOLS = ["Read", "Grep", "Glob"]
-ASK_SYSTEM = (
-    "You are answering a question the user typed into the i-read-code review page while they "
-    "review this branch. The review is still in progress: do not edit files, run commands, restart "
-    "the server or record decisions. Only Read, Grep and Glob are available. Answer the question "
-    "directly and concisely in Markdown, citing file:line where it helps. If the question exposes a "
-    "real problem, say so plainly and describe the fix; changes are made after the review."
-)
+ASK_TIMEOUT = 600  # seconds before a stuck agent process is killed
 
 
 def now():
@@ -47,7 +45,7 @@ def now():
 
 
 class Review:
-    def __init__(self, directory, session_id=None):
+    def __init__(self, directory, agent, session_id=None):
         self.dir = directory
         self.path = os.path.join(directory, "review.json")
         self.data = json.load(open(os.path.join(directory, "data.json")))
@@ -73,14 +71,22 @@ class Review:
                 status = "approved"
             self.items[cid] = {"status": status, "reason": r.get("reason", ""),
                                "decided_at": r.get("decided_at"), "bulk": bool(r.get("bulk"))}
-        # The Claude Code session that wrote the analysis; questions fork from it.
+        self.agent = agent
+        if prev and prev.get("agent", "claude") != agent.name:
+            # Another agent's sessions can't be resumed: delete them; threads replay their Q&A instead.
+            agents.delete_for(prev)
+            prev = dict(prev, session_id=None, agent_sessions=[],
+                        questions=[dict(t, session_id=None) for t in prev.get("questions", [])])
+        # The session that wrote the analysis; questions fork from it when the agent can fork.
         self.session_id = session_id or prev.get("session_id")
         self.threads = {}
         for t in prev.get("questions", []):
             tid = t.get("thread")
             if tid == GENERAL or tid in self.changes:
                 self.threads[tid] = {"session_id": t.get("session_id"), "messages": t.get("messages", [])}
-        self.busy = set()  # thread ids with a `claude` process running
+        # Every session a question started, answered or not, so finishing can delete them all.
+        self.spawned = list(prev.get("agent_sessions") or [])
+        self.busy = set()  # thread ids with an agent process running
         self.write()
 
     def record(self, cid, change):
@@ -110,7 +116,8 @@ class Review:
             "repo": m["repo"], "base": m["base"], "base_sha": m["base_sha"], "merge_base": m["merge_base"],
             "head": m["head"], "head_sha": m["head_sha"], "include_uncommitted": m["include_uncommitted"],
             "fingerprint": m.get("fingerprint"), "counts": counts, "items": items,
-            "session_id": self.session_id, "questions": [self.thread_record(t) for t in self.threads],
+            "agent": self.agent.name, "session_id": self.session_id,
+            "questions": [self.thread_record(t) for t in self.threads], "agent_sessions": self.spawned,
         }
 
     def thread_record(self, tid):
@@ -161,9 +168,20 @@ class Review:
             return self.write()
 
     def finish(self):
+        """Mark the review finished and delete the question sessions; the Q&A stays in review.json."""
         with self.lock:
             self.status = "finished"
-            return self.write()
+            removed = agents.delete_for(self.document())
+            self.spawned = []
+            for t in self.threads.values():
+                t["session_id"] = None
+            return self.write(), removed
+
+    def track(self, session_id):
+        with self.lock:
+            if session_id and session_id != self.session_id and session_id not in self.spawned:
+                self.spawned.append(session_id)
+                self.write()
 
     def claim_thread(self, tid):
         """Mark a thread busy so one question at a time runs per thread; returns its fork id or None."""
@@ -187,10 +205,24 @@ class Review:
             self.write()
             return self.thread_record(tid)
 
+    @property
+    def forks(self):
+        """True when a thread's first question forks the session that wrote the review."""
+        return self.agent.can_fork and bool(self.session_id)
+
     def prompt(self, tid, question, first):
-        """The text sent to claude. The first question in a thread carries what the reviewer is looking at."""
+        """The text sent to the agent. The first question in a thread carries what the reviewer is looking at.
+
+        Without a fork the agent hasn't seen the analysis, so the branch overview goes in too. A thread
+        whose session was deleted (the review was finished, then reopened) starts a new session, so its
+        earlier questions and answers are replayed in the prompt.
+        """
         if not first:
             return f"[Follow-up from the i-read-code review page]\n\n{question}"
+        m = self.data["meta"]
+        intro = "" if self.forks else (
+            f"The branch {m['head']} is being compared against {m['base']}. "
+            f"Overview from the review:\n{self.data['overview']}\n\n")
         if tid == GENERAL:
             where = "They are asking about the branch as a whole."
         else:
@@ -200,78 +232,52 @@ class Review:
                      f"Explanation shown to them:\n{c['explanation']}")
             if c.get("concerns"):
                 where += f"\n\nConcerns shown to them:\n{c['concerns']}"
-        return f"[Question from the i-read-code review page]\n\n{where}\n\nTheir question:\n{question}"
-
-
-def tool_status(block):
-    """A short line for the page while the answering session uses a tool."""
-    inp = block.get("input") or {}
-    name = block.get("name", "")
-    if name == "Read":
-        return f"Reading {os.path.basename(inp.get('file_path', '')) or 'a file'}"
-    if name == "Grep":
-        return f"Searching for {inp.get('pattern', '')[:60]}"
-    if name == "Glob":
-        return f"Looking for files matching {inp.get('pattern', '')[:60]}"
-    return f"Using {name}"
+        earlier = self.threads.get(tid, {}).get("messages")
+        if earlier:
+            where += "\n\nEarlier in this thread:\n" + "\n\n".join(
+                f"Q: {m['question']}\nA: {m['answer']}" for m in earlier)
+        return f"[Question from the i-read-code review page]\n\n{intro}{where}\n\nTheir question:\n{question}"
 
 
 class Asker:
-    """Runs `claude -p` for questions from the page and yields what it streams back."""
+    """Runs the agent's CLI for questions from the page and yields what it streams back."""
 
-    def __init__(self, claude, cwd):
-        self.claude = claude
+    def __init__(self, agent, cli, cwd):
+        self.agent = agent
+        self.cli = cli
         self.cwd = cwd
         self.procs = set()
         self.lock = threading.Lock()
 
-    def command(self, resume, fork):
-        cmd = [self.claude, "-p", "--output-format", "stream-json", "--include-partial-messages", "--verbose",
-               "--tools", *ASK_TOOLS, "--allowedTools", *ASK_TOOLS, "--permission-mode", "dontAsk",
-               "--strict-mcp-config", "--append-system-prompt", ASK_SYSTEM]
-        if resume:
-            cmd += ["--resume", resume] + (["--fork-session"] if fork else [])
-        return cmd
-
     def run(self, prompt, resume, fork):
-        """Yields ("session", id), ("text", delta), ("status", line), then ("answer", text) or ("error", msg).
-
-        The prompt goes in on stdin so it can't be mistaken for an option value.
-        """
+        """Yields ("session", id), ("text", delta), ("status", line), then ("answer", text) or ("error", msg)."""
+        cmd, stdin = self.agent.command(self.cli, prompt, resume, fork, self.cwd)
         with tempfile.TemporaryFile(mode="w+") as stderr:
-            proc = subprocess.Popen(self.command(resume, fork), cwd=self.cwd, stdin=subprocess.PIPE,
+            proc = subprocess.Popen(cmd, cwd=self.cwd, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
                                     stdout=subprocess.PIPE, stderr=stderr, text=True, encoding="utf-8")
             with self.lock:
                 self.procs.add(proc)
             timer = threading.Timer(ASK_TIMEOUT, proc.kill)
             timer.start()
             result = None
-            streamed = False
+            state = {}
+            streamed = []
             try:
-                proc.stdin.write(prompt)
-                proc.stdin.close()
+                if stdin is not None:
+                    proc.stdin.write(stdin)
+                    proc.stdin.close()
                 for line in proc.stdout:
                     try:
                         ev = json.loads(line)
                     except ValueError:
                         continue
-                    kind = ev.get("type")
-                    if kind == "system" and ev.get("subtype") == "init":
-                        yield "session", ev.get("session_id")
-                    elif kind == "stream_event":
-                        e = ev.get("event") or {}
-                        if e.get("type") == "content_block_start" and (e.get("content_block") or {}).get("type") == "text":
-                            if streamed:
-                                yield "text", "\n\n"
-                        elif e.get("type") == "content_block_delta" and (e.get("delta") or {}).get("type") == "text_delta":
-                            streamed = True
-                            yield "text", e["delta"]["text"]
-                    elif kind == "assistant":
-                        for block in (ev.get("message") or {}).get("content") or []:
-                            if block.get("type") == "tool_use":
-                                yield "status", tool_status(block)
-                    elif kind == "result":
+                    if ev.get("type") == "result":
                         result = ev
+                        continue
+                    for kind, value in self.agent.parse(ev, state):
+                        if kind == "text":
+                            streamed.append(value)
+                        yield kind, value
                 proc.wait()
             finally:
                 timer.cancel()
@@ -283,10 +289,12 @@ class Asker:
                     self.procs.discard(proc)
             if result and result.get("subtype") == "success" and not result.get("is_error"):
                 yield "session", result.get("session_id")
-                yield "answer", result.get("result") or ""
+                text = "".join(streamed) if self.agent.answer_from_stream else ""
+                yield "answer", text or result.get("result") or ""
             else:
                 stderr.seek(0)
-                detail = (result or {}).get("result") or stderr.read().strip()[-500:] or f"claude exited with code {proc.returncode}"
+                detail = (result or {}).get("result") or stderr.read().strip()[-500:] \
+                    or f"{os.path.basename(self.cli)} exited with code {proc.returncode}"
                 yield "error", detail
 
     def stop_all(self):
@@ -317,7 +325,7 @@ def make_handler(review, server_ref, asker):
             elif route == "/api/state":
                 with review.lock:
                     doc = review.document()
-                doc["ask"] = {"available": bool(asker.claude), "forked": bool(review.session_id)}
+                doc["ask"] = {"available": bool(asker.cli), "forked": review.forks, "agent": review.agent.label}
                 self.send(200, doc)
             else:
                 self.send(404, {"error": "not found"})
@@ -348,20 +356,22 @@ def make_handler(review, server_ref, asker):
             elif route == "/api/ask":
                 self.ask(body)
             elif route == "/api/finish":
-                doc = review.finish()
+                asker.stop_all()  # before deleting sessions, so a running answer can't write to one
+                doc, removed = review.finish()
                 self.send(200, doc)
                 c = doc["counts"]
                 print(f"Review finished: {c['approved']} approved, {c['declined']} declined, "
                       f"{c['pending']} pending. Saved to {review.path}", flush=True)
-                asker.stop_all()
+                if removed:
+                    print(f"Deleted {removed} question session(s)", flush=True)
                 threading.Timer(0.3, server_ref[0].shutdown).start()
             else:
                 self.send(404, {"error": "not found"})
 
         def ask(self, body):
             """Streams the answer as JSON lines: status/text events, then done (with the saved thread) or error."""
-            if not asker.claude:
-                return self.send(503, {"error": "The claude command wasn't found, so questions can't be answered."})
+            if not asker.cli:
+                return self.send(503, {"error": f"The {review.agent.label} CLI wasn't found, so questions can't be answered."})
             question = (body.get("question") or "").strip()
             if not question:
                 return self.send(400, {"error": "the question is empty"})
@@ -374,7 +384,7 @@ def make_handler(review, server_ref, asker):
                 return self.send(409, {"error": "Still answering the previous question here."})
             events = None
             try:
-                resume = thread_session or review.session_id
+                resume = thread_session or (review.session_id if review.forks else None)
                 prompt = review.prompt(tid, question, first=not thread_session)
                 print(f"question  {tid}  {question[:80]}", flush=True)
                 self.send_response(200)
@@ -386,12 +396,19 @@ def make_handler(review, server_ref, asker):
                 for kind, value in events:
                     if kind == "session":
                         session = value or session
+                        review.track(value)
                     elif kind == "answer":
                         self.event({"type": "done", "thread": review.add_answer(tid, session, question, value)})
                     else:
                         self.event({"type": kind, kind: value})
             except (BrokenPipeError, ConnectionResetError):
-                pass  # the page went away; closing the generator below kills the claude process
+                pass  # the page went away; closing the generator below kills the agent process
+            except Exception as e:  # e.g. output the parser didn't expect; tell the page instead of going silent
+                print(f"error     {tid}  {e!r}", flush=True)
+                try:
+                    self.event({"type": "error", "error": f"Couldn't read the agent's answer: {e}"})
+                except OSError:
+                    pass
             finally:
                 if events:
                     events.close()
@@ -420,16 +437,28 @@ def main():
     ap.add_argument("--dir", required=True, help="review directory containing data.json and index.html")
     ap.add_argument("--port", type=int, default=0, help="port (default: first free one from 8765)")
     ap.add_argument("--no-open", action="store_true", help="don't open a browser tab")
-    ap.add_argument("--session", default=os.environ.get("CLAUDE_CODE_SESSION_ID"),
-                    help="Claude Code session to fork for questions (default: $CLAUDE_CODE_SESSION_ID)")
-    ap.add_argument("--claude", default="claude", help="claude CLI used to answer questions (default: claude)")
+    ap.add_argument("--agent", choices=sorted(agents.AGENTS),
+                    help="agent that answers questions (default: the one that started this server, "
+                         "else the first CLI found)")
+    ap.add_argument("--cli", help="path or name of that agent's CLI (default: claude / cursor-agent)")
+    ap.add_argument("--session", help="session to fork for questions (default: the agent's own, "
+                                      "e.g. $CLAUDE_CODE_SESSION_ID)")
+    ap.add_argument("--finish", action="store_true",
+                    help="mark the review finished and delete its question sessions, then exit (no server)")
     args = ap.parse_args()
 
     d = os.path.abspath(args.dir)
     if not os.path.exists(os.path.join(d, "data.json")):
         sys.exit(f"error: {d}/data.json not found; run build_review.py first")
-    review = Review(d, args.session)
-    asker = Asker(shutil.which(args.claude), review.data["meta"]["repo"])
+    agent = agents.AGENTS[args.agent] if args.agent else agents.detect(os.environ)
+    review = Review(d, agent, args.session or agent.own_session(os.environ))
+    if args.finish:
+        doc, removed = review.finish()
+        c = doc["counts"]
+        print(f"Review finished: {c['approved']} approved, {c['declined']} declined, {c['pending']} pending. "
+              f"Deleted {removed} question session(s). Saved to {review.path}")
+        return
+    asker = Asker(agent, agents.find_cli(agent, args.cli), review.data["meta"]["repo"])
     host = "127.0.0.1"
     server_ref = []
     server = ThreadingHTTPServer((host, pick_port(host, args.port)), make_handler(review, server_ref, asker))
@@ -437,12 +466,12 @@ def main():
     url = f"http://{host}:{server.server_address[1]}/"
     print(f"Review page: {url}", flush=True)
     print(f"Decisions are saved to: {review.path}", flush=True)
-    if not asker.claude:
-        print(f"Questions are off: {args.claude!r} not found on PATH", flush=True)
-    elif review.session_id:
-        print(f"Questions fork session {review.session_id}", flush=True)
+    if not asker.cli:
+        print(f"Questions are off: {args.cli or ' / '.join(agent.clis)} not found on PATH", flush=True)
+    elif review.forks:
+        print(f"Questions go to {agent.label}, forking session {review.session_id}", flush=True)
     else:
-        print("Questions start a fresh claude session (no session id to fork)", flush=True)
+        print(f"Questions go to {agent.label} in new sessions that get the analysis in the prompt", flush=True)
     if not args.no_open:
         webbrowser.open(url)
     try:

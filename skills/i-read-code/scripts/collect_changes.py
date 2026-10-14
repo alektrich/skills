@@ -6,20 +6,28 @@ Writes two files into <repo>/.i-read-code/<branch-slug>/ (or --out):
   diff.txt      the same diff with OLD/NEW line numbers on every line, for reading
 
 By default the comparison is merge-base(base, HEAD) -> working tree, so committed,
-staged, unstaged and untracked changes are all included. Standard library only.
+staged, unstaged and untracked changes are all included. With the default
+output location, only the KEEP_REVIEWS most recent review directories under
+.i-read-code/ are kept; older ones are deleted along with their question
+sessions. Standard library only.
 """
 
 import argparse
 import codecs
 import datetime
+import glob
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
+import agents
+
 MAX_CONTENT_BYTES = 400_000
+KEEP_REVIEWS = 3
 BASE_CANDIDATES = ("main", "master", "origin/main", "origin/master")
 GENERATED_NAMES = {
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb", "composer.lock",
@@ -236,6 +244,32 @@ def ensure_excluded(root):
             fh.write(("\n" if existing and not existing.endswith("\n") else "") + ".i-read-code/\n")
 
 
+def last_used(d):
+    times = [os.path.getmtime(os.path.join(d, n)) for n in ("review.json", "changes.json")
+             if os.path.exists(os.path.join(d, n))]
+    return max(times, default=0)
+
+
+def prune_reviews(parent, current):
+    """Delete all but the KEEP_REVIEWS most recently used review dirs (current included); returns their names.
+
+    Only directories with a changes.json count as reviews, so anything else kept under .i-read-code/ stays.
+    """
+    others = [os.path.join(parent, n) for n in os.listdir(parent)]
+    others = [d for d in others if d != current and os.path.isfile(os.path.join(d, "changes.json"))]
+    others.sort(key=last_used, reverse=True)
+    removed = []
+    for d in others[KEEP_REVIEWS - 1:]:
+        for doc in [os.path.join(d, "review.json")] + glob.glob(os.path.join(d, "history", "review-*.json")):
+            try:
+                agents.delete_for(json.load(open(doc)))
+            except (OSError, ValueError):
+                pass
+        shutil.rmtree(d, ignore_errors=True)
+        removed.append(os.path.basename(d))
+    return removed
+
+
 def write_diff_txt(path, meta, files):
     total_add = sum(f["additions"] for f in files)
     total_del = sum(f["deletions"] for f in files)
@@ -327,6 +361,7 @@ def main():
 
     out_dir = args.out or os.path.join(root, ".i-read-code", slugify(head_name))
     os.makedirs(out_dir, exist_ok=True)
+    pruned = [] if args.out else prune_reviews(os.path.dirname(out_dir), out_dir)
     meta = {
         "repo": root, "base": base, "base_sha": base_sha, "merge_base": mb, "head": head_name,
         "head_sha": head_sha, "head_ref": head_ref and head_sha,
@@ -345,6 +380,8 @@ def main():
     for n in notes:
         print(f"note: {n}")
     print(f"Output directory: {out_dir}")
+    if pruned:
+        print(f"Removed {len(pruned)} older review(s) to keep the last {KEEP_REVIEWS}: {', '.join(pruned)}")
     print(f"diff.txt: {diff_lines} diff lines to read")
     for f in files:
         flags = [x for x in ("untracked", "binary", "generated") if f.get(x)]

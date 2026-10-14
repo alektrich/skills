@@ -19,10 +19,13 @@ import shutil
 import subprocess
 import sys
 
+import agents
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE = os.path.join(HERE, "..", "assets", "review.html")
 MAX_CONTEXT_BYTES = 400_000
 IMPORTANCE = ("high", "medium", "low")
+KEEP_ARCHIVES = 2  # earlier review.json files kept in history/, so a branch keeps its last 3 reviews
 
 
 def die(problems):
@@ -149,6 +152,20 @@ def load_context(meta, path):
     return {"path": path, "content": data.decode("utf-8", errors="replace"), "too_large": False}
 
 
+def archive_review(review, hist, warnings):
+    """Move review.json to history/, delete its question sessions and drop all but the newest archives."""
+    try:
+        agents.delete_for(json.load(open(review)))
+    except (OSError, ValueError):
+        pass
+    os.makedirs(hist, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    shutil.move(review, os.path.join(hist, f"review-{stamp}.json"))
+    warnings.append(f"previous review.json moved to history/review-{stamp}.json")
+    for old in sorted(glob.glob(os.path.join(hist, "review-*.json")))[:-KEEP_ARCHIVES]:
+        os.remove(old)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", required=True, help="review directory written by collect_changes.py")
@@ -270,11 +287,7 @@ def main():
 
     review = os.path.join(d, "review.json")
     if os.path.exists(review):
-        hist = os.path.join(d, "history")
-        os.makedirs(hist, exist_ok=True)
-        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        shutil.move(review, os.path.join(hist, f"review-{stamp}.json"))
-        warnings.append(f"previous review.json moved to history/review-{stamp}.json")
+        archive_review(review, os.path.join(d, "history"), warnings)
 
     with open(os.path.join(d, "data.json"), "w") as fh:
         json.dump(data, fh)

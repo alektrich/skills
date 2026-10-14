@@ -1,6 +1,6 @@
 ---
 name: i-read-code
-description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Approve or Request Change (with a reason) on each change. Decisions are saved to a local JSON file, then Claude summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
+description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Approve or Request Change (with a reason) on each change. Decisions are saved to a local JSON file, then the agent summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
 ---
 
 # i-read-code
@@ -47,9 +47,9 @@ Work out the comparison from the user's request:
 PY "$SKILL_DIR/scripts/collect_changes.py" [--base REF] [--head REF] [--committed-only]
 ```
 
-Run it from inside the repo. It prints the output directory (`<repo>/.i-read-code/<branch>/`), the file list with +/- counts, and notes such as "you're on the base branch". It also adds `.i-read-code/` to `.git/info/exclude`, so review files never show up in `git status`.
+Run it from inside the repo. It prints the output directory (`<repo>/.i-read-code/<branch>/`), the file list with +/- counts, and notes such as "you're on the base branch". It also adds `.i-read-code/` to `.git/info/exclude`, so review files never show up in `git status`, and keeps only the 3 most recent review directories there: older ones are deleted, along with the question sessions they left (it prints which).
 
-If it says **"Existing review found"**: when the diff is unchanged and items are still pending, ask whether to resume. To resume, skip to step 4 and run `serve.py` on that directory; saved decisions load automatically. Otherwise continue. Rebuilding archives the old `review.json` to `history/`.
+If it says **"Existing review found"**: when the diff is unchanged and items are still pending, ask whether to resume. To resume, skip to step 4 and run `serve.py` on that directory; saved decisions load automatically. Otherwise continue. Rebuilding archives the old `review.json` to `history/` (the 2 newest archives are kept) and deletes its question sessions.
 
 If there are no changes, or the base can't be found, tell the user and stop.
 
@@ -122,20 +122,31 @@ Start the server **in the background** (Bash with `run_in_background: true`), be
 PY "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
 ```
 
-It opens the browser and prints the URL. Start it from this session's Bash tool rather than having the user run it: the server reads this session's id from `CLAUDE_CODE_SESSION_ID`, saves it to `review.json` as `session_id`, and answers questions from the page with `claude -p` **forked from this session**, so the answers know everything you learned writing the analysis. Its third line of output says which session it forks, or that questions are off because `claude` isn't on PATH. If the env var is missing, pass `--session <id>`.
+It opens the browser and prints the URL. Start it from this session's shell tool rather than having the user run it: the server works out which agent started it and answers questions from the page with that agent's CLI, read-only.
+
+- **Claude Code**: it reads this session's id from `CLAUDE_CODE_SESSION_ID`, saves it to `review.json` as `session_id`, and answers with `claude -p` **forked from this session**, so the answers know everything you learned writing the analysis. If the env var is missing, pass `--session <id>`.
+- **Cursor**: it answers with `cursor-agent -p --mode ask`. Cursor chats can't be forked, so each thread starts a new chat whose first prompt carries the overview and the item's explanation. Newer Cursor CLIs refuse to run headless in an untrusted folder, so the server passes `--trust`, which marks the repo trusted for Cursor from then on.
+
+If detection picks the wrong agent, pass `--agent claude|cursor` (and `--cli <path>` if the CLI isn't on PATH). Its third line of output names the agent and whether it forks, or says that questions are off because the CLI wasn't found.
 
 Then tell the user, briefly:
 
 - The URL, and what's in the review: files, items, how many high-importance items, and anything you flagged in `concerns` that deserves attention first.
 - How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Approve** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`. For speed, each file has **Approve all in file** (`Shift+C`) and the left bar has **Approve all Low/Medium Importance**; bulk actions only touch pending items, never high-importance ones from the sidebar, and can be undone from the toast.
-- **Ask Claude** on any change (key `a`), or the box on the overview for branch-wide questions. Each change keeps its own thread with follow-ups. The answering session can read and search the code but can't edit anything or run commands. Answers take a few seconds and count toward their Claude usage.
+- **Ask Agent** on any change (key `a`), or the box on the overview for branch-wide questions. Each change keeps its own thread with follow-ups. The answering session can read and search the code but can't edit anything or run commands. Answers take a few seconds and count toward their usage.
 - Every click is saved to `<review-dir>/review.json` right away. When they're done, click **Finish review** (or just tell you).
 
 Then stop and wait. Don't start fixing anything while the review is in progress.
 
 ## 5. After the review
 
-When the user clicks **Finish review**, the server exits and you're notified that the background command completed. If the user says they're done instead, stop the server. Either way, read `<review-dir>/review.json`:
+When the user clicks **Finish review**, the server deletes the question sessions, exits, and you're notified that the background command completed. If the user says they're done instead, stop the server, then run this so the review is marked finished and its question sessions are deleted the same way:
+
+```bash
+PY "$SKILL_DIR/scripts/serve.py" --dir <review-dir> --finish
+```
+
+Either way, read `<review-dir>/review.json`:
 
 ```json
 {
@@ -152,13 +163,13 @@ When the user clicks **Finish review**, the server exits and you're notified tha
 
 `bulk: true` means the item was approved with "Approve all in file" or "Approve all Low/Medium Importance" rather than one by one, so the user may not have read it closely.
 
-`questions` holds the threads from the page: `{ "thread": "c1" | "general", "change_id", "file", "start", "end", "title", "session_id", "messages": [{ "question", "answer", "asked_at" }] }`. You didn't see these conversations, so read them. A question often points at something unclear or wrong, and an answer may have promised a fix ("changes are made after the review").
+`questions` holds the threads from the page: `{ "thread": "c1" | "general", "change_id", "file", "start", "end", "title", "session_id", "messages": [{ "question", "answer", "asked_at" }] }`. After finishing, `session_id` is `null` because the sessions are gone; the messages are the record. You didn't see these conversations, so read them. A question often points at something unclear or wrong, and an answer may have promised a fix ("changes are made after the review").
 
 Report back in a few lines: counts (say how many approvals were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending, then any question whose answer exposed a problem the user didn't turn into a change request. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
 
 ## Notes
 
 - The page loads syntax highlighting from cdnjs. Offline, it falls back to plain text and still works.
-- `review.json` is the record of the review. The rest of `<review-dir>` (`changes.json`, `diff.txt`, `data.json`, `index.html`) is regenerated on every run.
-- Each question thread is a saved Claude Code session (it shows up in `claude --resume`). The first question in a thread forks this session; follow-ups resume that fork. Resuming a review in a new session forks the new one; old threads keep their own forks.
+- `review.json` is the record of the review. The rest of `<review-dir>` (`changes.json`, `diff.txt`, `data.json`, `index.html`) is regenerated on every run. Only the last 3 reviews per repo are kept, and only with the default output location; `--out` directories are never pruned.
+- While the review is open, each question thread is a saved session of the answering agent (it shows up in `claude --resume` or `cursor-agent ls`). With Claude the first question in a thread forks this session; follow-ups resume that thread's session. Every session the server starts is listed in `review.json` under `agent_sessions`, and all of them are deleted when the review is finished, archived or pruned. This session is never deleted. Asking again in a finished review that was reopened starts a new fork with the earlier Q&A in the prompt.
 - If port 8765 is busy, the server picks the next free one. If the browser didn't open, give the user the printed URL.
