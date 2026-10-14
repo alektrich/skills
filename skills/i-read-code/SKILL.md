@@ -15,6 +15,25 @@ Three bundled scripts do the mechanical work (standard library Python 3, no inst
 | `scripts/build_review.py` | Validates your `analysis.json`, fills gaps, writes `index.html` + `data.json` |
 | `scripts/serve.py` | Serves the page on 127.0.0.1 and writes every decision to `review.json` |
 
+## 0. Pick the Python command
+
+The interpreter is named differently across systems. macOS and most Linux distros only ship `python3`. On Windows the usual names are `python` or `py -3`, and `python3` is often a Store stub. Some older machines have `python` pointing at Python 2. Find one that is really Python 3:
+
+```bash
+for c in python3 python "py -3"; do $c -c 'import sys; assert sys.version_info[0] == 3' 2>/dev/null && { echo "$c"; break; }; done
+```
+
+Use the printed command wherever `PY` appears below, for example `python3 "$SKILL_DIR/scripts/..."`. Shell variables don't carry over between Bash calls, so write the command out each time.
+
+If nothing prints, there's no Python 3. Stop and tell the user. Do **not** install it yourself: it's a system-level change. Suggest the command for their OS and run it only if they say yes:
+
+- macOS: `brew install python` (with Homebrew), or `xcode-select --install`
+- Debian/Ubuntu: `sudo apt install python3`
+- Fedora/RHEL: `sudo dnf install python3`
+- Windows: `winget install Python.Python.3.12`
+
+After an install, run the check again.
+
 ## 1. Collect the changes
 
 Work out the comparison from the user's request:
@@ -25,7 +44,7 @@ Work out the comparison from the user's request:
 - A different branch or commit to review, not the checkout → `--head <ref>` (committed content only).
 
 ```bash
-python3 "$SKILL_DIR/scripts/collect_changes.py" [--base REF] [--head REF] [--committed-only]
+PY "$SKILL_DIR/scripts/collect_changes.py" [--base REF] [--head REF] [--committed-only]
 ```
 
 Run it from inside the repo. It prints the output directory (`<repo>/.i-read-code/<branch>/`), the file list with +/- counts, and notes such as "you're on the base branch". It also adds `.i-read-code/` to `.git/info/exclude`, so review files never show up in `git status`.
@@ -90,7 +109,7 @@ Lock files, build output and binaries get automatic items. Mention them in an it
 ## 3. Build the page
 
 ```bash
-python3 "$SKILL_DIR/scripts/build_review.py" --dir <review-dir>
+PY "$SKILL_DIR/scripts/build_review.py" --dir <review-dir>
 ```
 
 If it exits with problems (unknown file, missing title or explanation, bad line numbers), fix `analysis.json` and rerun. Read the warnings too. A "touches no changed line" warning usually means you cited the wrong side or an off-by-some range. A list of uncovered lines means you skipped something. Add those items and rebuild; aim for zero uncovered lines.
@@ -100,7 +119,7 @@ If it exits with problems (unknown file, missing title or explanation, bad line 
 Start the server **in the background** (Bash with `run_in_background: true`), because it runs until the user finishes:
 
 ```bash
-python3 "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
+PY "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
 ```
 
 It opens the browser and prints the URL. Then tell the user, briefly:
