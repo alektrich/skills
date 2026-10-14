@@ -3,7 +3,7 @@
 
   python3 serve.py --dir <review-dir> [--port N] [--no-open] [--session ID] [--claude CMD]
 
-Listens on 127.0.0.1 only. Each Confirm/Decline (and each bulk confirm) is written to review.json
+Listens on 127.0.0.1 only. Each Approve/Decline (and each bulk approve) is written to review.json
 immediately (atomic replace), so closing the browser loses nothing; restarting
 the server resumes from the saved file. The process exits when the reviewer
 clicks "Finish review", which lets whoever started it in the background know
@@ -29,7 +29,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-STATUSES = ("pending", "confirmed", "declined")
+STATUSES = ("pending", "approved", "declined")
 GENERAL = "general"  # thread id for questions about the branch as a whole
 ASK_TIMEOUT = 600  # seconds before a stuck `claude` process is killed
 ASK_TOOLS = ["Read", "Grep", "Glob"]
@@ -68,7 +68,10 @@ class Review:
         self.items = {}
         for cid, c in self.changes.items():
             r = saved.get(cid) or {}
-            self.items[cid] = {"status": r.get("status", "pending"), "reason": r.get("reason", ""),
+            status = r.get("status", "pending")
+            if status == "confirmed":  # review.json written before Confirm became Approve
+                status = "approved"
+            self.items[cid] = {"status": status, "reason": r.get("reason", ""),
                                "decided_at": r.get("decided_at"), "bulk": bool(r.get("bulk"))}
         # The Claude Code session that wrote the analysis; questions fork from it.
         self.session_id = session_id or prev.get("session_id")
@@ -89,8 +92,8 @@ class Review:
             "status": self.items[cid]["status"],
             "reason": self.items[cid]["reason"] if self.items[cid]["status"] == "declined" else "",
             "decided_at": self.items[cid]["decided_at"],
-            # True when confirmed via "Confirm all in file" / "Confirm all <level>", not read one by one.
-            "bulk": self.items[cid]["status"] == "confirmed" and self.items[cid].get("bulk", False),
+            # True when approved via "Approve all in file" / "Approve all <level>", not read one by one.
+            "bulk": self.items[cid]["status"] == "approved" and self.items[cid].get("bulk", False),
         }
         if old:
             rec["old_path"] = old
@@ -100,7 +103,7 @@ class Review:
         m = self.data["meta"]
         items = [self.record(cid, c) for cid, c in self.changes.items()]
         counts = {s: sum(1 for i in items if i["status"] == s) for s in STATUSES}
-        counts["bulk_confirmed"] = sum(1 for i in items if i["bulk"])
+        counts["bulk_approved"] = sum(1 for i in items if i["bulk"])
         counts["total"] = len(items)
         return {
             "tool": "i-read-code", "version": 1, "status": self.status, "updated_at": now(),
@@ -141,9 +144,9 @@ class Review:
             return self.write()
 
     def decide_many(self, cids, status):
-        """Bulk confirm (or reset to pending) in one write; declining always needs a per-item reason."""
-        if status not in ("confirmed", "pending"):
-            raise ValueError("bulk decisions can only confirm or reset to pending")
+        """Bulk approve (or reset to pending) in one write; declining always needs a per-item reason."""
+        if status not in ("approved", "pending"):
+            raise ValueError("bulk decisions can only approve or reset to pending")
         if not isinstance(cids, list) or not cids:
             raise ValueError("change_ids must be a non-empty list")
         unknown = [c for c in cids if c not in self.changes]
@@ -153,7 +156,7 @@ class Review:
             stamp = now() if status != "pending" else None
             for cid in cids:
                 self.items[cid] = {"status": status, "reason": "", "decided_at": stamp,
-                                   "bulk": status == "confirmed"}
+                                   "bulk": status == "approved"}
             self.status = "in_progress"
             return self.write()
 
@@ -348,7 +351,7 @@ def make_handler(review, server_ref, asker):
                 doc = review.finish()
                 self.send(200, doc)
                 c = doc["counts"]
-                print(f"Review finished: {c['confirmed']} confirmed, {c['declined']} declined, "
+                print(f"Review finished: {c['approved']} approved, {c['declined']} declined, "
                       f"{c['pending']} pending. Saved to {review.path}", flush=True)
                 asker.stop_all()
                 threading.Timer(0.3, server_ref[0].shutdown).start()

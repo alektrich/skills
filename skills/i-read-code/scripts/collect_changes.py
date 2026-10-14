@@ -357,7 +357,7 @@ def main():
             prev = json.load(open(existing))
             c = prev.get("counts", {})
             same = prev.get("fingerprint") == meta["fingerprint"]
-            print(f"Existing review found: {c.get('confirmed', 0)} confirmed, {c.get('declined', 0)} declined, "
+            print(f"Existing review found: {c.get('approved', c.get('confirmed', 0))} approved, {c.get('declined', 0)} declined, "
                   f"{c.get('pending', 0)} pending, status {prev.get('status')}, "
                   + ("the diff is unchanged since then." if same else "the diff has changed since then."))
         except (OSError, ValueError):

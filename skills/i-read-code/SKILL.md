@@ -1,6 +1,6 @@
 ---
 name: i-read-code
-description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Confirm or Request Change (with a reason) on each change. Decisions are saved to a local JSON file, then Claude summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
+description: Interactive manual code review of a branch. Diffs the current branch (committed plus uncommitted work) against main/master or any ref the user names, writes a plain-language explanation of every meaningful change, and opens a local web page where the user steps through the files, sees connected files (callers, tests, imported modules, even unchanged ones) on the right, and clicks Approve or Request Change (with a reason) on each change. Decisions are saved to a local JSON file, then Claude summarizes them and offers to fix the declined ones. Use when the user types /i-read-code, or wants to read, walk through, sign off on, or manually review their own branch, PR or AI-written changes line by line instead of getting an automated review.
 ---
 
 # i-read-code
@@ -94,7 +94,7 @@ Then write `<review-dir>/analysis.json`:
 
 The schema, field by field:
 
-- **changes**: the review items. Each one is a contiguous line range in **one** file, and gets its own Confirm/Request Change. Make one item per logical change. Split a hunk that does two unrelated things. Merge adjacent hunks that make one point. Every non-trivial changed line should belong to an item; the build adds "Change without an explanation" items for anything you skip, and those are a failure of your analysis.
+- **changes**: the review items. Each one is a contiguous line range in **one** file, and gets its own Approve/Request Change. Make one item per logical change. Split a hunk that does two unrelated things. Merge adjacent hunks that make one point. Every non-trivial changed line should belong to an item; the build adds "Change without an explanation" items for anything you skip, and those are a failure of your analysis.
   - `side`: `"new"` with new-file line numbers (the normal case, including modifications that remove lines in between). `"old"` with old line numbers for pure removals. `"file"`, with no start/end, for a whole-file point such as a new file explained as a unit, a deleted file, or a rename.
   - `importance`: `high` for behavior, security, data or API contracts; `medium` for meaningful logic or structure; `low` for renames, formatting, comments, small refactors. Trivial edits can be grouped into one `low` item per file, but they still get an item so the user can sign off.
   - `explanation`: **what changed and what it means**. Cover intent, the behavior difference compared with before, and effects on callers. Don't narrate the syntax ("adds an if statement"); the user can see the code. Write the way you'd brief a colleague who is about to read it. Supports blank-line paragraphs, `- ` bullets, `` `code` `` and `**bold**`.
@@ -127,7 +127,7 @@ It opens the browser and prints the URL. Start it from this session's Bash tool 
 Then tell the user, briefly:
 
 - The URL, and what's in the review: files, items, how many high-importance items, and anything you flagged in `concerns` that deserves attention first.
-- How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Confirm** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`. For speed, each file has **Confirm all in file** (`Shift+C`) and the left bar has **Confirm all Low/Medium Importance**; bulk actions only touch pending items, never high-importance ones from the sidebar, and can be undone from the toast.
+- How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Approve** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`. For speed, each file has **Approve all in file** (`Shift+C`) and the left bar has **Approve all Low/Medium Importance**; bulk actions only touch pending items, never high-importance ones from the sidebar, and can be undone from the toast.
 - **Ask Claude** on any change (key `a`), or the box on the overview for branch-wide questions. Each change keeps its own thread with follow-ups. The answering session can read and search the code but can't edit anything or run commands. Answers take a few seconds and count toward their Claude usage.
 - Every click is saved to `<review-dir>/review.json` right away. When they're done, click **Finish review** (or just tell you).
 
@@ -141,7 +141,7 @@ When the user clicks **Finish review**, the server exits and you're notified tha
 {
   "status": "finished",
   "base": "main", "head": "feature/cursor-pagination", "merge_base": "…",
-  "counts": { "total": 14, "confirmed": 11, "declined": 2, "pending": 1, "bulk_confirmed": 6 },
+  "counts": { "total": 14, "approved": 11, "declined": 2, "pending": 1, "bulk_approved": 6 },
   "items": [
     { "change_id": "c1", "file": "src/api/users.py", "side": "new", "start": 42, "end": 67,
       "title": "Paginate GET /users with cursor tokens", "importance": "high",
@@ -150,11 +150,11 @@ When the user clicks **Finish review**, the server exits and you're notified tha
 }
 ```
 
-`bulk: true` means the item was confirmed with "Confirm all in file" or "Confirm all Low/Medium Importance" rather than one by one, so the user may not have read it closely.
+`bulk: true` means the item was approved with "Approve all in file" or "Approve all Low/Medium Importance" rather than one by one, so the user may not have read it closely.
 
 `questions` holds the threads from the page: `{ "thread": "c1" | "general", "change_id", "file", "start", "end", "title", "session_id", "messages": [{ "question", "answer", "asked_at" }] }`. You didn't see these conversations, so read them. A question often points at something unclear or wrong, and an answer may have promised a fix ("changes are made after the review").
 
-Report back in a few lines: counts (say how many confirmations were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending, then any question whose answer exposed a problem the user didn't turn into a change request. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
+Report back in a few lines: counts (say how many approvals were bulk), then each declined item as `file:start-end — title` followed by the user's reason, then any items left pending, then any question whose answer exposed a problem the user didn't turn into a change request. Then **offer** to address the declined items. Propose a concrete fix per item in one line each and ask before editing. The reasons are the user's instructions; if one is ambiguous, ask instead of guessing. After fixing, offer to run `/i-read-code` again so they can review the follow-up changes.
 
 ## Notes
 

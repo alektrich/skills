@@ -172,7 +172,7 @@ tr.add { background: var(--add-bg); } tr.add td.mk { color: var(--add-mk); }
 tr.del { background: var(--del-bg); } tr.del td.mk { color: var(--del-mk); }
 tr.ln td:first-child { border-left: 3px solid transparent; }
 tr.cov.s-pending td:first-child { border-left-color: var(--accent); }
-tr.cov.s-confirmed td:first-child { border-left-color: var(--ok); }
+tr.cov.s-approved td:first-child { border-left-color: var(--ok); }
 tr.cov.s-declined td:first-child { border-left-color: var(--orange); }
 tr.hl td.src, tr.hl td.no { background: var(--focus-bg); }
 tr.focus-line td { background: var(--focus-bg); }
@@ -186,9 +186,9 @@ tr.card-row td { padding: 10px 12px; background: var(--bg); font-family: var(--s
 .card { position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 12px 16px 12px 18px; max-width: 880px; box-shadow: var(--shadow-sm); transition: box-shadow var(--fast) var(--ease), border-color var(--fast) var(--ease); }
 .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: var(--radius) 0 0 var(--radius); background: var(--accent); }
 .card + .card { margin-top: 10px; }
-.card.s-confirmed::before { background: var(--ok); }
+.card.s-approved::before { background: var(--ok); }
 .card.s-declined::before { background: var(--orange); }
-.card.s-confirmed { background: color-mix(in srgb, var(--ok-soft) 35%, var(--panel)); }
+.card.s-approved { background: color-mix(in srgb, var(--ok-soft) 35%, var(--panel)); }
 .card.focused { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-md); }
 .card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .card-title { font-weight: 600; font-size: 14.5px; }
@@ -249,7 +249,7 @@ aside section + section { margin-top: 24px; }
 .mini:hover { background: var(--panel-2); }
 .mini .t { flex: 1; min-width: 0; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
-.dot.confirmed { background: var(--ok); box-shadow: none; } .dot.declined { background: var(--orange); box-shadow: none; }
+.dot.approved { background: var(--ok); box-shadow: none; } .dot.declined { background: var(--orange); box-shadow: none; }
 .mini .ml { font: 11px var(--mono); color: var(--muted); flex: none; }
 .keys { font-size: 12.5px; color: var(--muted); line-height: 1.9; }
 .keys.grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; line-height: 1.5; align-items: center; }
@@ -434,7 +434,7 @@ function splitPath(p) {
 const STATUS_LETTER = { added: "A", modified: "M", deleted: "D", renamed: "R", copied: "C", typechange: "T" };
 function decision(id) { return state.decisions[id] || { status: "pending", reason: "" }; }
 function countsFor(list) {
-  const c = { total: list.length, confirmed: 0, declined: 0, pending: 0 };
+  const c = { total: list.length, approved: 0, declined: 0, pending: 0 };
   for (const x of list) c[decision(x.id).status]++;
   return c;
 }
@@ -469,11 +469,11 @@ function renderHeader() {
   const m = DATA.meta;
   $("branch").innerHTML = `${ic("branch")}<b>${esc(m.head)}</b> vs <b>${esc(m.base)}</b><span>· ${esc(m.merge_base.slice(0, 8))}${m.include_uncommitted ? " · incl. uncommitted" : ""}</span>`;
   const c = countsFor(DATA.changes);
-  const done = c.confirmed + c.declined;
+  const done = c.approved + c.declined;
   $("count").innerHTML = `<strong>${done}</strong> / ${c.total} reviewed${c.declined ? ` · ${c.declined} change${c.declined === 1 ? "" : "s"} requested` : ""}`;
   const pct = n => (c.total ? (100 * n / c.total) : 0) + "%";
   const bar = $("bar");
-  bar.innerHTML = `<i class="c" style="width:${pct(c.confirmed)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
+  bar.innerHTML = `<i class="c" style="width:${pct(c.approved)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
   bar.setAttribute("aria-valuenow", String(done)); bar.setAttribute("aria-valuemax", String(c.total));
   const s = $("save");
   s.className = "save" + (state.finished ? " done" : state.online ? "" : " off");
@@ -506,9 +506,9 @@ SYSTEM_DARK.addEventListener("change", () => applyTheme(document.documentElement
 function fileChip(path) {
   const c = countsFor(BY_FILE.get(path) || []);
   if (!c.total) return "";
-  if (c.declined) return `<span class="chip has-bad" title="${c.declined} change(s) requested">${ic("pencil", "xs")}${c.declined} · ${c.confirmed + c.declined}/${c.total}</span>`;
-  if (!c.pending) return `<span class="chip done" title="All confirmed">${ic("check", "xs")}${c.total}</span>`;
-  return `<span class="chip">${c.confirmed}/${c.total}</span>`;
+  if (c.declined) return `<span class="chip has-bad" title="${c.declined} change(s) requested">${ic("pencil", "xs")}${c.declined} · ${c.approved + c.declined}/${c.total}</span>`;
+  if (!c.pending) return `<span class="chip done" title="All approved">${ic("check", "xs")}${c.total}</span>`;
+  return `<span class="chip">${c.approved}/${c.total}</span>`;
 }
 // With every level picked, all files show; otherwise only files with an item at a picked level.
 function fileVisible(f) {
@@ -525,18 +525,18 @@ function bulkButtons() {
   return ["low", "medium"].map(lv => {
     const n = pendingIds(DATA.changes.filter(c => c.importance === lv)).length;
     const label = lv[0].toUpperCase() + lv.slice(1);
-    return `<button class="btn ok-ghost" data-act="confirm-level" data-level="${lv}" ${n && !dis ? "" : "disabled"} title="Confirm every pending ${lv}-importance item">${ic("check-all")}Confirm all ${label} Importance<span class="count">${n}</span></button>`;
+    return `<button class="btn ok-ghost" data-act="approve-level" data-level="${lv}" ${n && !dis ? "" : "disabled"} title="Approve every pending ${lv}-importance item">${ic("check-all")}Approve all ${label} Importance<span class="count">${n}</span></button>`;
   }).join("");
 }
 function renderFiles() {
   const v = state.view;
   const all = countsFor(DATA.changes);
   const q = state.filter.toLowerCase();
-  let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st st-ctx">${ic("list", "xs")}</span><span class="path plain"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.confirmed + all.declined}/${all.total}</span></button>`;
+  let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st st-ctx">${ic("list", "xs")}</span><span class="path plain"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.approved + all.declined}/${all.total}</span></button>`;
   h += `<div class="search">${ic("search")}<input class="filter" id="filter" type="search" aria-label="Filter files" placeholder="Filter files…" value="${esc(state.filter)}"></div>`;
   h += `<div class="section-label">Importance</div>`;
   h += `<div class="imp-filter" role="group" aria-label="Show files by importance">${["high", "medium", "low"].map(lv => `<button class="imp-${lv} ${state.importance.has(lv) ? "on" : ""}" data-act="importance" data-level="${lv}" aria-pressed="${state.importance.has(lv)}" title="Show files with ${lv}-importance items">${lv}</button>`).join("")}</div>`;
-  h += `<div class="section-label">Quick confirm</div><div class="bulk">${bulkButtons()}</div>`;
+  h += `<div class="section-label">Quick approve</div><div class="bulk">${bulkButtons()}</div>`;
   const shown = DATA.files.filter(fileVisible);
   h += `<div class="section-label"><span>Changed files</span><span>${shown.length === DATA.files.length ? shown.length : `${shown.length} of ${DATA.files.length}`}</span></div>`;
   for (const f of shown) {
@@ -566,13 +566,13 @@ function cardHtml(c) {
   if (editing) {
     actions = `<div class="decline-form"><label for="reason">What should be different?</label><textarea id="reason" placeholder="Describe the change you want…">${esc(state.draft)}</textarea>
       <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">${ic("pencil")}Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel</span></div></div>`;
-  } else if (d.status === "confirmed") {
-    actions = `<div class="actions"><span class="verdict ok">${ic("check")}Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
+  } else if (d.status === "approved") {
+    actions = `<div class="actions"><span class="verdict ok">${ic("check")}Approved</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else if (d.status === "declined") {
     actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">${ic("pencil")}Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else {
     const dis = state.online ? "" : "disabled";
-    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>${ic("check")}Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button>${askBtn}</div>`;
+    actions = `<div class="actions"><button class="btn ok" data-act="approve" data-id="${esc(c.id)}" ${dis}>${ic("check")}Approve</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button>${askBtn}</div>`;
   }
   const askOpen = state.ask.available && (state.askOpen.has(c.id) || state.live[c.id]);
   return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
@@ -748,14 +748,14 @@ function renderFile(f) {
   const c = countsFor(changes);
   const canFull = f.content != null && f.status !== "deleted" && !f.binary;
   const mode = canFull ? state.mode : "diff";
-  const confirmAll = c.pending
-    ? `<button class="btn ok" data-act="confirm-file" data-path="${esc(f.path)}" ${state.online ? "" : "disabled"} title="Confirm every pending item in this file (Shift+C)">${ic("check-all")}Confirm all in file<span class="count">${c.pending}</span></button>`
+  const approveAll = c.pending
+    ? `<button class="btn ok" data-act="approve-file" data-path="${esc(f.path)}" ${state.online ? "" : "disabled"} title="Approve every pending item in this file (Shift+C)">${ic("check-all")}Approve all in file<span class="count">${c.pending}</span></button>`
     : "";
   let head = `<div class="file-head">${backButton()}
     <div class="row"><span class="st st-${STATUS_LETTER[f.status] || "M"}">${STATUS_LETTER[f.status] || "M"}</span><h2>${esc(f.path)}</h2>
     <span class="stats"><span class="a">+${f.additions}</span> <span class="r">−${f.deletions}</span></span>
-    <span class="chip ${c.total && !c.pending ? "done" : ""}">${c.confirmed + c.declined}/${c.total} reviewed</span>
-    <span class="head-actions">${canFull ? `<span class="seg" role="group" aria-label="View mode"><button class="${mode === "diff" ? "on" : ""}" data-act="mode" data-mode="diff" aria-pressed="${mode === "diff"}">Diff</button><button class="${mode === "full" ? "on" : ""}" data-act="mode" data-mode="full" aria-pressed="${mode === "full"}">Full file</button></span>` : ""}${confirmAll}</span></div>
+    <span class="chip ${c.total && !c.pending ? "done" : ""}">${c.approved + c.declined}/${c.total} reviewed</span>
+    <span class="head-actions">${canFull ? `<span class="seg" role="group" aria-label="View mode"><button class="${mode === "diff" ? "on" : ""}" data-act="mode" data-mode="diff" aria-pressed="${mode === "diff"}">Diff</button><button class="${mode === "full" ? "on" : ""}" data-act="mode" data-mode="full" aria-pressed="${mode === "full"}">Full file</button></span>` : ""}${approveAll}</span></div>
     ${f.old_path ? `<div class="stats">renamed from ${esc(f.old_path)}</div>` : ""}
     ${f.untracked ? `<div class="stats">untracked file (not yet added to git)</div>` : ""}
     ${f.summary ? `<div class="summary">${md(f.summary)}</div>` : ""}</div>`;
@@ -803,7 +803,7 @@ function renderOverview() {
     <div class="stat-row">
       <div class="stat"><div class="n">${c.pending}</div><div class="l">Pending</div></div>
       <div class="stat high"><div class="n">${highPending}</div><div class="l">High importance pending</div></div>
-      <div class="stat ok"><div class="n">${c.confirmed}</div><div class="l">Confirmed</div></div>
+      <div class="stat ok"><div class="n">${c.approved}</div><div class="l">Approved</div></div>
       <div class="stat change"><div class="n">${c.declined}</div><div class="l">Changes requested</div></div>
     </div>
     <div class="text">${md(DATA.overview) || "<p class='empty'>No overview was written.</p>"}</div>`;
@@ -839,7 +839,7 @@ function renderRelated() {
   if (v.kind === "overview") {
     const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
     const high = pending.filter(c => c.importance === "high");
-    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Confirm</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Claude</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Approve</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Claude</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
     if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
   } else {
     const links = DATA.connections[v.path] || [];
@@ -857,10 +857,10 @@ function renderRelated() {
   }
   h += `<section><h3>Keys</h3><div class="keys grid">
     <span><kbd>j</kbd> <kbd>k</kbd></span><span>next / previous item</span>
-    <span><kbd>c</kbd></span><span>confirm</span>
+    <span><kbd>c</kbd></span><span>approve</span>
     <span><kbd>d</kbd></span><span>request change</span>
     ${state.ask.available ? `<span><kbd>a</kbd></span><span>ask Claude about it</span>` : ""}
-    <span><kbd>⇧</kbd> <kbd>C</kbd></span><span>confirm all in file</span>
+    <span><kbd>⇧</kbd> <kbd>C</kbd></span><span>approve all in file</span>
     <span><kbd>n</kbd></span><span>next pending anywhere</span>
     <span><kbd>[</kbd> <kbd>]</kbd></span><span>previous / next file</span>
     <span><kbd>b</kbd></span><span>back</span>
@@ -977,7 +977,7 @@ async function decide(id, status, reason = "", advance = false) {
     toast("Couldn't save: " + e.message);
   }
 }
-// Bulk confirm only touches pending items, so earlier change requests are never overwritten.
+// Bulk approve only touches pending items, so earlier change requests are never overwritten.
 async function decideMany(ids, status, what) {
   if (!ids.length || !state.online) return;
   try {
@@ -985,8 +985,8 @@ async function decideMany(ids, status, what) {
     if (state.editing && ids.includes(state.editing)) { state.editing = null; state.draft = ""; }
     renderAll();
     if (state.focus) setFocus(state.focus, false);
-    if (status === "confirmed") {
-      toast(`Confirmed ${plural(ids.length, "item")} ${what}.`, "info", { label: "Undo", run: () => decideMany(ids, "pending", what) });
+    if (status === "approved") {
+      toast(`Approved ${plural(ids.length, "item")} ${what}.`, "info", { label: "Undo", run: () => decideMany(ids, "pending", what) });
     } else {
       toast(`Moved ${plural(ids.length, "item")} back to pending.`, "info");
     }
@@ -994,11 +994,11 @@ async function decideMany(ids, status, what) {
     toast("Couldn't save: " + e.message);
   }
 }
-function confirmFile(path) {
-  decideMany(pendingIds(BY_FILE.get(path) || []), "confirmed", `in ${splitPath(path)[1]}`);
+function approveFile(path) {
+  decideMany(pendingIds(BY_FILE.get(path) || []), "approved", `in ${splitPath(path)[1]}`);
 }
-function confirmLevel(level) {
-  decideMany(pendingIds(DATA.changes.filter(c => c.importance === level)), "confirmed", `of ${level} importance`);
+function approveLevel(level) {
+  decideMany(pendingIds(DATA.changes.filter(c => c.importance === level)), "approved", `of ${level} importance`);
 }
 async function finish() {
   const c = countsFor(DATA.changes);
@@ -1009,7 +1009,7 @@ async function finish() {
     const o = document.createElement("div");
     o.className = "done-overlay";
     o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true");
-    o.innerHTML = `<div class="box"><div class="badge">${ic("check", "")}</div><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
+    o.innerHTML = `<div class="box"><div class="badge">${ic("check", "")}</div><h2>Review saved</h2><p>${doc.counts.approved} approved, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
     document.body.appendChild(o);
   } catch (e) { toast("Couldn't finish: " + e.message); }
 }
@@ -1049,9 +1049,9 @@ document.addEventListener("click", e => {
     case "mode": state.mode = el.dataset.mode; renderAll(false); break;
     case "expand": state.expanded.add(el.dataset.key); renderAll(); break;
     case "show-generated": state.showGenerated.add(el.dataset.path); renderAll(); break;
-    case "confirm": state.focus = id; decide(id, "confirmed"); break;
-    case "confirm-file": confirmFile(el.dataset.path); break;
-    case "confirm-level": confirmLevel(el.dataset.level); break;
+    case "approve": state.focus = id; decide(id, "approved"); break;
+    case "approve-file": approveFile(el.dataset.path); break;
+    case "approve-level": approveLevel(el.dataset.level); break;
     case "decline": state.focus = id; state.editing = id; state.draft = decision(id).reason || ""; renderAll(); break;
     case "cancel": state.editing = null; state.draft = ""; renderAll(); break;
     case "submit-decline": submitDecline(id); break;
@@ -1106,8 +1106,8 @@ document.addEventListener("keydown", e => {
     case "]": stepFile(1); break;
     case "[": stepFile(-1); break;
     case "b": { const prev = state.history.pop(); if (prev) navigate(prev, false); break; }
-    case "c": if (f && state.online) decide(f, "confirmed", "", true); break;
-    case "C": if (state.view.kind === "file") confirmFile(state.view.path); break;
+    case "c": if (f && state.online) decide(f, "approved", "", true); break;
+    case "C": if (state.view.kind === "file") approveFile(state.view.path); break;
     case "t": cycleTheme(); break;
     case "a": if (f && state.online && state.ask.available) { e.preventDefault(); openAsk(f); } break;
     case "d": if (f && state.online) { e.preventDefault(); state.editing = f; state.draft = decision(f).reason || ""; renderAll(); } break;

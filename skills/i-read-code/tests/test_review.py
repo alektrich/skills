@@ -218,21 +218,21 @@ class ReviewTest(unittest.TestCase):
         server.wait()
         server.stdout.close()
 
-    def test_bulk_confirm_and_undo(self):
+    def test_bulk_approve_and_undo(self):
         server, post = self.serve()
         try:
-            post("api/decision", {"change_id": "a", "status": "confirmed"})
-            doc = post("api/decisions", {"change_ids": ["b1", "b3"], "status": "confirmed"})
-            self.assertEqual((doc["counts"]["confirmed"], doc["counts"]["bulk_confirmed"]), (3, 2))
+            post("api/decision", {"change_id": "a", "status": "approved"})
+            doc = post("api/decisions", {"change_ids": ["b1", "b3"], "status": "approved"})
+            self.assertEqual((doc["counts"]["approved"], doc["counts"]["bulk_approved"]), (3, 2))
             doc = post("api/decisions", {"change_ids": ["b3"], "status": "pending"})
             items = {i["change_id"]: i for i in doc["items"]}
-            self.assertEqual((items["b1"]["status"], items["b3"]["status"]), ("confirmed", "pending"))
+            self.assertEqual((items["b1"]["status"], items["b3"]["status"]), ("approved", "pending"))
             self.assertEqual({k: v["bulk"] for k, v in items.items()}, {"a": False, "b1": True, "b3": False})
-            # Re-confirming one by one clears the flag.
-            doc = post("api/decision", {"change_id": "b1", "status": "confirmed"})
-            self.assertEqual(doc["counts"]["bulk_confirmed"], 0)
-            for bad in ({"change_ids": ["a"], "status": "declined"}, {"change_ids": ["nope"], "status": "confirmed"},
-                        {"change_ids": [], "status": "confirmed"}):
+            # Re-approving one by one clears the flag.
+            doc = post("api/decision", {"change_id": "b1", "status": "approved"})
+            self.assertEqual(doc["counts"]["bulk_approved"], 0)
+            for bad in ({"change_ids": ["a"], "status": "declined"}, {"change_ids": ["nope"], "status": "approved"},
+                        {"change_ids": [], "status": "approved"}):
                 with self.assertRaises(urllib.error.HTTPError) as err:
                     post("api/decisions", bad)
                 self.assertEqual(err.exception.code, 400)
@@ -240,12 +240,12 @@ class ReviewTest(unittest.TestCase):
         finally:
             self.stop(server)
         with open(os.path.join(self.out, "review.json")) as fh:
-            self.assertEqual(json.load(fh)["counts"]["confirmed"], 2)
+            self.assertEqual(json.load(fh)["counts"]["approved"], 2)
 
-    def test_confirm_and_decline_are_saved_to_review_json(self):
+    def test_approve_and_decline_are_saved_to_review_json(self):
         server, post = self.serve()
         try:
-            post("api/decision", {"change_id": "a", "status": "confirmed"})
+            post("api/decision", {"change_id": "a", "status": "approved"})
             post("api/decision", {"change_id": "b1", "status": "declined", "reason": "Import inside main()"})
             with self.assertRaises(urllib.error.HTTPError) as err:
                 post("api/decision", {"change_id": "b3", "status": "declined", "reason": "  "})
@@ -260,8 +260,8 @@ class ReviewTest(unittest.TestCase):
             review = json.load(fh)
         items = {i["change_id"]: i for i in review["items"]}
         self.assertEqual(review["status"], "finished")
-        self.assertEqual(review["counts"], {"total": 3, "confirmed": 1, "declined": 1, "pending": 1, "bulk_confirmed": 0})
-        self.assertEqual(items["a"]["status"], "confirmed")
+        self.assertEqual(review["counts"], {"total": 3, "approved": 1, "declined": 1, "pending": 1, "bulk_approved": 0})
+        self.assertEqual(items["a"]["status"], "approved")
         declined = items["b1"]
         self.assertEqual((declined["status"], declined["reason"]), ("declined", "Import inside main()"))
         self.assertEqual((declined["file"], declined["start"], declined["end"]), ("b.py", 1, 1))
