@@ -106,7 +106,7 @@ python3 "$SKILL_DIR/scripts/serve.py" --dir <review-dir>
 It opens the browser and prints the URL. Then tell the user, briefly:
 
 - The URL, and what's in the review: files, items, how many high-importance items, and anything you flagged in `concerns` that deserves attention first.
-- How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Confirm** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`.
+- How the page works: files on the left (filterable by High/Medium/Low importance), explained changes inline with **Confirm** and **Request Change** (it asks for a reason and is saved as `declined`), connected files on the right including unchanged context, and keys `j`/`k`/`c`/`d`/`n`. For speed, each file has **Confirm all in file** (`Shift+C`) and the left bar has **Confirm all Low/Medium Importance**; bulk actions only touch pending items, never high-importance ones from the sidebar, and can be undone from the toast.
 - Every click is saved to `<review-dir>/review.json` right away. When they're done, click **Finish review** (or just tell you).
 
 Then stop and wait. Don't start fixing anything while the review is in progress.

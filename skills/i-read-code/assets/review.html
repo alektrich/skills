@@ -4,97 +4,168 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Code review</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" id="hl-light" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" id="hl-dark" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<style>
-:root {
-  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --text: #1d2330; --muted: #667085; --border: #dde1e7;
-  --accent: #3b5bdb; --accent-soft: #e7ecff;
-  --ok: #1f8a4c; --ok-soft: #e3f5ea; --bad: #c92a2a; --bad-soft: #fdeaea; --warn: #b7791f; --orange: #e8590c; --orange-soft: #fff0e6;
-  --add-bg: #e9f8ee; --add-mk: #1f8a4c; --del-bg: #fdecec; --del-mk: #c92a2a; --focus-bg: #fff6d6;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+<script>
+// Runs before first paint so a saved theme never flashes. "system" follows the OS setting.
+const THEME_KEY = "i-read-code:theme";
+const SYSTEM_DARK = window.matchMedia("(prefers-color-scheme: dark)");
+function themePref() {
+  try { const v = localStorage.getItem(THEME_KEY); if (v === "light" || v === "dark") return v; } catch (e) {}
+  return "system";
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1218; --panel: #161a22; --panel-2: #1d222c; --text: #e3e7ee; --muted: #8b94a5; --border: #2a303c;
-    --accent: #7b93ff; --accent-soft: #1f2747;
-    --ok: #4cc27f; --ok-soft: #15301f; --bad: #ff6b6b; --bad-soft: #3a1a1c; --warn: #e2b04a; --orange: #ff922b; --orange-soft: #3a2414;
-    --add-bg: #13281b; --add-mk: #4cc27f; --del-bg: #2f1719; --del-mk: #ff6b6b; --focus-bg: #3a3214;
-  }
+function applyTheme(pref) {
+  const dark = pref === "dark" || (pref === "system" && SYSTEM_DARK.matches);
+  const root = document.documentElement;
+  root.dataset.theme = dark ? "dark" : "light";
+  root.dataset.themePref = pref;
+  const light = document.getElementById("hl-light"), darkSheet = document.getElementById("hl-dark");
+  if (light) light.media = dark ? "not all" : "all";
+  if (darkSheet) darkSheet.media = dark ? "all" : "not all";
+}
+applyTheme(themePref());
+</script>
+<style>
+:root { color-scheme: light;
+  --bg: #f8fafc; --panel: #ffffff; --panel-2: #f1f5f9; --text: #0f172a; --muted: #5b6b80;
+  --border: #e2e8f0; --border-strong: #cbd5e1;
+  --accent: #2563eb; --accent-soft: #eff4ff; --on-accent: #ffffff;
+  --ok: #15803d; --ok-soft: #e7f8ee; --on-ok: #ffffff;
+  --bad: #b91c1c; --bad-soft: #fdecec;
+  --warn: #a16207; --orange: #c2410c; --orange-soft: #fff1e6; --on-orange: #ffffff;
+  --add-bg: #ecfdf3; --add-mk: #15803d; --del-bg: #fef2f2; --del-mk: #b91c1c; --focus-bg: #fef6c7;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --radius: 8px; --radius-sm: 6px;
+  --ease: cubic-bezier(0.2, 0, 0, 1); --fast: 140ms;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1120; --panel: #0f172a; --panel-2: #1a2436; --text: #e2e8f0; --muted: #94a3b8;
+  --border: #243045; --border-strong: #334155;
+  --accent: #60a5fa; --accent-soft: #15233f; --on-accent: #0b1120;
+  --ok: #4ade80; --ok-soft: #0f2a1b; --on-ok: #052e16;
+  --bad: #f87171; --bad-soft: #351416;
+  --warn: #facc15; --orange: #fb923c; --orange-soft: #33200f; --on-orange: #2a1204;
+  --add-bg: #0e2619; --add-mk: #4ade80; --del-bg: #2a1215; --del-mk: #f87171; --focus-bg: #332d0f;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); overflow: hidden; }
-button { font: inherit; cursor: pointer; }
-code { font-family: var(--mono); font-size: 0.92em; background: var(--panel-2); padding: 1px 4px; border-radius: 4px; }
+body { background: var(--bg); color: var(--text); font: 14px/1.55 var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+button { font: inherit; cursor: pointer; color: inherit; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+.ic.sm { width: 14px; height: 14px; vertical-align: -2px; }
+.ic.xs { width: 12px; height: 12px; vertical-align: -1px; }
 
-header.top { height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
-.brand { font-weight: 700; letter-spacing: -0.01em; }
-.branch { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.branch b { color: var(--text); font-weight: 600; }
-.progress { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
-.bar { width: 160px; height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; display: flex; }
-.bar i { display: block; height: 100%; }
+/* ---------- top bar ---------- */
+header.top { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.brand .logo { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--text); color: var(--panel); }
+.sep { width: 1px; height: 22px; background: var(--border); flex: none; }
+.branch { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.branch b { color: var(--text); font: 500 12.5px var(--mono); }
+.progress { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.progress strong { color: var(--text); font-weight: 600; }
+.bar { width: 160px; height: 6px; border-radius: 99px; background: var(--panel-2); overflow: hidden; display: flex; box-shadow: inset 0 0 0 1px var(--border); }
+.bar i { display: block; height: 100%; transition: width 300ms var(--ease); }
 .bar .c { background: var(--ok); } .bar .d { background: var(--orange); }
-.save { font-size: 12px; color: var(--muted); white-space: nowrap; }
-.save.off { color: var(--bad); font-weight: 600; }
+.save { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.save::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.save.off { color: var(--bad); font-weight: 600; } .save.off::before { background: var(--bad); }
+.save.done::before { background: var(--muted); }
 
-.btn { border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 5px 12px; border-radius: 7px; font-size: 13px; }
-.btn:hover { background: var(--panel-2); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
-.btn.bad { background: var(--panel); border-color: var(--bad); color: var(--bad); }
-.btn.bad.solid { background: var(--bad); color: #fff; }
-.btn.change { background: var(--panel); border-color: var(--orange); color: var(--orange); }
-.btn.change.solid { background: var(--orange); color: #fff; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn.link { border: none; background: none; color: var(--accent); padding: 2px 4px; }
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); padding: 5px 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; white-space: nowrap; box-shadow: var(--shadow-sm); transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease), transform 80ms var(--ease); }
+.btn:hover:not(:disabled) { background: var(--panel-2); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: var(--on-ok); }
+.btn.ok:hover:not(:disabled) { background: var(--ok); filter: brightness(1.08); }
+.btn.ok-ghost { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.btn.ok-ghost:hover:not(:disabled) { background: var(--ok-soft); }
+.btn.change { border-color: color-mix(in srgb, var(--orange) 55%, var(--border)); color: var(--orange); }
+.btn.change:hover:not(:disabled) { background: var(--orange-soft); }
+.btn.change.solid { background: var(--orange); border-color: var(--orange); color: var(--on-orange); }
+.btn.change.solid:hover:not(:disabled) { background: var(--orange); filter: brightness(1.08); }
+.btn:disabled { opacity: 0.45; box-shadow: none; }
+.btn.link { border: none; background: none; box-shadow: none; color: var(--accent); padding: 4px 6px; min-height: 28px; }
+.btn.link:hover:not(:disabled) { background: var(--accent-soft); }
+.btn.icon { width: 32px; padding: 0; justify-content: center; }
+.btn .count { font: 600 11px var(--mono); padding: 0 6px; border-radius: 99px; background: color-mix(in srgb, currentColor 14%, transparent); }
 
-.layout { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; height: calc(100% - 52px); }
-.pane { overflow: auto; min-height: 0; }
-nav.files { border-right: 1px solid var(--border); background: var(--panel); padding: 10px 8px 40px; }
-aside.related { border-left: 1px solid var(--border); background: var(--panel); padding: 14px 14px 40px; }
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 320px; height: calc(100% - 56px); }
+.pane { overflow: auto; min-height: 0; scrollbar-width: thin; }
+nav.files { border-right: 1px solid var(--border); background: var(--panel); padding: 12px 10px 40px; }
+aside.related { border-left: 1px solid var(--border); background: var(--panel); padding: 16px 16px 40px; }
 main.main { padding: 0 0 80px; }
 
-.nav-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 7px; border: none; background: none; color: var(--text); text-align: left; }
+/* ---------- file list ---------- */
+.nav-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 5px 8px; border-radius: var(--radius-sm); border: none; background: none; color: var(--text); text-align: left; font-size: 13px; transition: background var(--fast) var(--ease); }
 .nav-item:hover { background: var(--panel-2); }
-.nav-item.active { background: var(--accent-soft); }
-.nav-item .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.nav-item.active { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+.nav-item .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--mono); font-size: 12.5px; }
 .nav-item .path span { unicode-bidi: plaintext; }
+.nav-item .path.plain { font-family: var(--sans); font-size: 13px; font-weight: 600; }
 .nav-item .dir { color: var(--muted); }
 .nav-item.gen { opacity: 0.6; }
-.st { font: 600 11px var(--mono); width: 16px; text-align: center; flex: none; }
-.st-A { color: var(--ok); } .st-M { color: var(--warn); } .st-D { color: var(--bad); } .st-R, .st-C { color: var(--accent); } .st-ctx { color: var(--muted); }
-.chip { font-size: 11px; padding: 0 6px; border-radius: 99px; background: var(--panel-2); color: var(--muted); flex: none; }
+.st { display: inline-grid; place-items: center; font: 600 10.5px var(--mono); width: 18px; height: 18px; border-radius: 4px; flex: none; background: var(--panel-2); }
+.st-A { color: var(--ok); background: var(--ok-soft); } .st-M { color: var(--warn); } .st-D { color: var(--bad); background: var(--bad-soft); }
+.st-R, .st-C { color: var(--accent); background: var(--accent-soft); } .st-ctx { color: var(--muted); background: none; }
+.chip { display: inline-flex; align-items: center; gap: 3px; font: 500 11px var(--mono); padding: 1px 7px; border-radius: 99px; background: var(--panel-2); color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
 .chip.done { background: var(--ok-soft); color: var(--ok); }
 .chip.has-bad { background: var(--orange-soft); color: var(--orange); }
-.imp-filter { display: flex; gap: 6px; margin: 0 0 4px; }
-.imp-filter button { flex: 1; border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 2px 0; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.imp-filter button.on.imp-high { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
-.imp-filter button.on.imp-medium { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-.imp-filter button.on.imp-low { background: var(--panel-2); color: var(--text); border-color: var(--muted); }
-.filter { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); margin: 8px 0; font: inherit; font-size: 13px; }
-.section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 8px 6px; font-weight: 600; }
+.search { position: relative; margin: 10px 0 0; }
+.search .ic { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.filter { width: 100%; min-height: 34px; padding: 6px 10px 6px 32px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.filter::placeholder { color: var(--muted); }
+.filter:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.section-label { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 16px 8px 6px; font-weight: 600; }
+.imp-filter { display: flex; gap: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.imp-filter button { flex: 1; min-height: 28px; border: none; border-left: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; transition: background var(--fast) var(--ease), color var(--fast) var(--ease); }
+.imp-filter button:first-child { border-left: none; }
+.imp-filter button:hover { background: var(--panel-2); }
+.imp-filter button.on.imp-high { background: var(--bad-soft); color: var(--bad); }
+.imp-filter button.on.imp-medium { background: var(--accent-soft); color: var(--accent); }
+.imp-filter button.on.imp-low { background: var(--panel-2); color: var(--text); }
+.bulk { display: grid; gap: 6px; }
+.bulk .btn { width: 100%; justify-content: flex-start; }
+.bulk .btn .count { margin-left: auto; }
+.bulk .hint { font-size: 11.5px; color: var(--muted); margin: 2px 2px 0; }
 
-.banner { margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 13px; }
-.file-head { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 14px 20px 10px; border-bottom: 1px solid var(--border); }
-.file-head h2 { margin: 0; font: 600 15px var(--mono); word-break: break-all; }
+/* ---------- main ---------- */
+.banner { display: flex; gap: 8px; align-items: flex-start; margin: 12px 20px 0; padding: 10px 12px; border-radius: var(--radius); background: var(--bad-soft); color: var(--bad); font-size: 13px; border: 1px solid color-mix(in srgb, var(--bad) 30%, transparent); }
+.file-head { position: sticky; top: 0; z-index: 3; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); padding: 12px 24px 12px; border-bottom: 1px solid var(--border); }
+.file-head h2 { margin: 0; font: 600 14.5px var(--mono); word-break: break-all; min-width: 0; }
 .file-head .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .file-head .stats { font: 12px var(--mono); color: var(--muted); }
 .file-head .stats .a { color: var(--add-mk); } .file-head .stats .r { color: var(--del-mk); }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; margin-left: auto; }
-.seg button { border: none; background: var(--panel); color: var(--muted); padding: 3px 10px; font-size: 12px; }
+.head-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button { border: none; min-height: 30px; background: var(--panel); color: var(--muted); padding: 3px 11px; font-size: 12px; font-weight: 500; transition: background var(--fast) var(--ease); }
+.seg button + button { border-left: 1px solid var(--border); }
 .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.summary { color: var(--text); margin-top: 6px; font-size: 13.5px; }
+.summary { color: var(--text); margin-top: 6px; font-size: 13.5px; max-width: 80ch; }
 .summary p { margin: 4px 0; }
-.content { padding: 12px 20px; }
+.content { padding: 16px 24px; }
 .empty { color: var(--muted); padding: 20px; }
 
-table.code { width: 100%; border-collapse: collapse; font: 12.5px/1.55 var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-table.code td { padding: 0 8px; vertical-align: top; }
-td.no { width: 1%; min-width: 44px; text-align: right; color: var(--muted); user-select: none; white-space: nowrap; opacity: 0.8; }
+/* ---------- code ---------- */
+table.code { width: 100%; border-collapse: separate; border-spacing: 0; font: 12.5px/1.6 var(--mono); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); }
+table.code td { padding: 0 10px; vertical-align: top; }
+td.no { width: 1%; min-width: 46px; text-align: right; color: var(--muted); user-select: none; white-space: nowrap; opacity: 0.75; font-size: 11.5px; }
 td.mk { width: 14px; padding: 0 2px; user-select: none; text-align: center; }
 td.src { white-space: pre-wrap; overflow-wrap: anywhere; width: 100%; }
 tr.add { background: var(--add-bg); } tr.add td.mk { color: var(--add-mk); }
@@ -105,88 +176,134 @@ tr.cov.s-confirmed td:first-child { border-left-color: var(--ok); }
 tr.cov.s-declined td:first-child { border-left-color: var(--orange); }
 tr.hl td.src, tr.hl td.no { background: var(--focus-bg); }
 tr.focus-line td { background: var(--focus-bg); }
-tr.hunk td { background: var(--panel-2); color: var(--muted); padding: 3px 8px; font-size: 12px; }
-tr.gap td { background: var(--panel-2); color: var(--accent); padding: 2px 8px; font-size: 12px; cursor: pointer; text-align: center; }
-tr.gap:hover td { text-decoration: underline; }
-tr.removed-note td { color: var(--del-mk); font-size: 11.5px; padding: 0 8px; background: var(--del-bg); }
-tr.card-row td { padding: 8px 10px; background: var(--bg); font-family: var(--sans); font-size: 14px; }
+tr.hunk td { background: var(--panel-2); color: var(--muted); padding: 4px 10px; font-size: 11.5px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+tr.gap td { background: var(--panel-2); color: var(--accent); padding: 3px 10px; font-size: 11.5px; cursor: pointer; text-align: center; transition: background var(--fast) var(--ease); }
+tr.gap:hover td { background: var(--accent-soft); }
+tr.removed-note td { color: var(--del-mk); font-size: 11.5px; padding: 1px 10px; background: var(--del-bg); }
+tr.card-row td { padding: 10px 12px; background: var(--bg); font-family: var(--sans); font-size: 14px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
-.card { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 9px; background: var(--panel); padding: 10px 14px; max-width: 880px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+/* ---------- review cards ---------- */
+.card { position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 12px 16px 12px 18px; max-width: 880px; box-shadow: var(--shadow-sm); transition: box-shadow var(--fast) var(--ease), border-color var(--fast) var(--ease); }
+.card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: var(--radius) 0 0 var(--radius); background: var(--accent); }
 .card + .card { margin-top: 10px; }
-.card.s-confirmed { border-left-color: var(--ok); }
-.card.s-declined { border-left-color: var(--orange); }
-.card.focused { outline: 2px solid var(--accent); outline-offset: 1px; }
-.card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.card-title { font-weight: 650; }
-.where { font: 12px var(--mono); color: var(--muted); margin-left: auto; }
-.imp { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.card.s-confirmed::before { background: var(--ok); }
+.card.s-declined::before { background: var(--orange); }
+.card.s-confirmed { background: color-mix(in srgb, var(--ok-soft) 35%, var(--panel)); }
+.card.focused { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-md); }
+.card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-title { font-weight: 600; font-size: 14.5px; }
+.where { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; }
+.imp { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; padding: 2px 6px; border-radius: 4px; line-height: 1.3; }
 .imp-high { background: var(--bad-soft); color: var(--bad); }
 .imp-medium { background: var(--accent-soft); color: var(--accent); }
 .imp-low { background: var(--panel-2); color: var(--muted); }
 .auto-tag { font-size: 11px; color: var(--muted); font-style: italic; }
-.expl p { margin: 6px 0; } .expl ul { margin: 6px 0; padding-left: 20px; }
-.concerns { margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: var(--panel-2); font-size: 13px; }
+.expl { max-width: 78ch; } .expl p { margin: 6px 0; } .expl ul { margin: 6px 0; padding-left: 20px; }
+.concerns { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; padding: 8px 10px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warn) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 25%, transparent); font-size: 13px; }
+.concerns > .ic { color: var(--warn); margin-top: 2px; }
 .concerns p { margin: 0; display: inline; }
-.actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-.verdict { font-weight: 600; font-size: 13px; }
-.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); } .verdict.change { color: var(--orange); }
-.reason { margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: var(--orange-soft); white-space: pre-wrap; font-size: 13px; }
-.decline-form { margin-top: 8px; }
-.decline-form textarea { width: 100%; min-height: 72px; padding: 8px; border-radius: 7px; border: 1px solid var(--bad); background: var(--bg); color: var(--text); font: inherit; resize: vertical; }
+.actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.verdict { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 13px; }
+.verdict.ok { color: var(--ok); } .verdict.change { color: var(--orange); }
+.reason { margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--orange-soft); white-space: pre-wrap; font-size: 13px; }
+.decline-form { margin-top: 10px; }
+.decline-form label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.decline-form textarea { width: 100%; min-height: 76px; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--orange); background: var(--bg); color: var(--text); font: inherit; resize: vertical; }
+.decline-form textarea:focus { outline: none; box-shadow: 0 0 0 3px var(--orange-soft); }
 .decline-form .hint { font-size: 12px; color: var(--muted); }
 .notes-block { margin-bottom: 14px; }
 
-aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
-aside h3 + * { margin-top: 0; }
-aside section + section { margin-top: 22px; }
-.rel { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
-.rel:hover { border-color: var(--accent); }
-.rel .rp { font: 600 12.5px var(--mono); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+/* ---------- right pane ---------- */
+aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+aside section + section { margin-top: 24px; }
+.rel { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: var(--radius); padding: 9px 11px; margin-bottom: 8px; transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.rel:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.rel .rp { font: 600 12px var(--mono); display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
 .rel .rp span:first-child { flex: 1 1 auto; min-width: 0; }
-.rel .rr { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
-.kind { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 4px; flex: none; }
+.rel .rr { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.kind { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 4px; flex: none; }
 .kind.changed { background: var(--accent-soft); color: var(--accent); }
 .kind.context { background: var(--panel-2); color: var(--muted); }
-.mini { display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 5px 6px; border: none; background: none; color: var(--text); text-align: left; border-radius: 6px; font-size: 13px; }
+.mini { display: flex; gap: 8px; align-items: center; width: 100%; min-height: 30px; padding: 5px 6px; border: none; background: none; color: var(--text); text-align: left; border-radius: var(--radius-sm); font-size: 13px; transition: background var(--fast) var(--ease); }
 .mini:hover { background: var(--panel-2); }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--accent); align-self: center; }
-.dot.confirmed { background: var(--ok); } .dot.declined { background: var(--orange); }
-.mini .ml { font: 11.5px var(--mono); color: var(--muted); margin-left: auto; flex: none; }
+.mini .t { flex: 1; min-width: 0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--panel); box-shadow: inset 0 0 0 2px var(--accent); }
+.dot.confirmed { background: var(--ok); box-shadow: none; } .dot.declined { background: var(--orange); box-shadow: none; }
+.mini .ml { font: 11px var(--mono); color: var(--muted); flex: none; }
 .keys { font-size: 12.5px; color: var(--muted); line-height: 1.9; }
-kbd { font: 11px var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel-2); color: var(--text); }
+.keys.grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; line-height: 1.5; align-items: center; }
+kbd { display: inline-block; min-width: 20px; text-align: center; font: 500 11px var(--mono); border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel-2); color: var(--text); }
 
-.overview { padding: 20px 24px; max-width: 980px; }
-.overview h1 { font-size: 20px; margin: 0 0 6px; }
-.overview .meta { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
-.overview .text p { margin: 8px 0; }
-.ov-file { margin-top: 18px; }
-.ov-file h4 { margin: 0 0 4px; font: 600 13px var(--mono); }
-.ov-file h4 button { all: unset; cursor: pointer; } .ov-file h4 button:hover { color: var(--accent); }
+/* ---------- overview ---------- */
+.overview { padding: 28px 32px; max-width: 980px; }
+.overview h1 { font-size: 22px; letter-spacing: -0.015em; margin: 0 0 6px; }
+.overview .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.overview .text { max-width: 78ch; } .overview .text p { margin: 8px 0; }
+.stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0 16px; }
+.stat { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 10px 12px; box-shadow: var(--shadow-sm); }
+.stat .n { font: 600 20px var(--mono); font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 12px; color: var(--muted); }
+.stat.ok .n { color: var(--ok); } .stat.change .n { color: var(--orange); } .stat.high .n { color: var(--bad); }
+.ov-file { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 10px 12px; }
+.ov-file h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font: 600 13px var(--mono); }
+.ov-file h4 button { all: unset; cursor: pointer; overflow-wrap: anywhere; } .ov-file h4 button:hover { color: var(--accent); }
+.ov-file h4 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ov-file .fs { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
-.done-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 20; }
-.done-overlay .box { background: var(--panel); border-radius: 12px; padding: 24px 28px; max-width: 520px; border: 1px solid var(--border); }
+
+/* ---------- overlays ---------- */
+.done-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.55); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+.done-overlay .box { background: var(--panel); border-radius: 12px; padding: 24px 28px; max-width: 520px; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+.done-overlay .box .badge { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); margin-bottom: 12px; }
 .done-overlay h2 { margin: 0 0 8px; }
-.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 30; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; background: var(--text); color: var(--panel); padding: 9px 10px 9px 14px; border-radius: var(--radius); font-size: 13px; z-index: 30; box-shadow: var(--shadow-md); animation: toast-in 180ms var(--ease); max-width: calc(100vw - 32px); }
+.toast.bad { background: var(--bad); color: #fff; }
+.toast button { border: none; background: color-mix(in srgb, currentColor 16%, transparent); color: inherit; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-sm); min-height: 28px; }
+.toast button:hover { background: color-mix(in srgb, currentColor 26%, transparent); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
 @media (max-width: 1150px) {
-  .layout { grid-template-columns: 240px minmax(0, 1fr); }
+  .layout { grid-template-columns: 250px minmax(0, 1fr); }
   aside.related { display: none; }
   .bar { width: 90px; }
+  .branch { display: none; }
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-check-all" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><path d="M14 4h7"/><path d="M14 9h7"/><path d="M14 15h7"/><path d="M14 20h7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol>
+  <symbol id="i-alert"viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+</svg>
 <header class="top">
-  <span class="brand">i-read-code</span>
+  <span class="brand"><span class="logo"><svg class="ic sm" aria-hidden="true"><use href="#i-eye"/></svg></span>i-read-code</span>
+  <span class="sep"></span>
   <span class="branch" id="branch"></span>
-  <div class="progress"><span id="count"></span><div class="bar" id="bar"></div></div>
-  <span class="save" id="save"></span>
-  <button class="btn" data-act="next-pending" title="Next pending item (n)">Next pending</button>
-  <button class="btn primary" data-act="finish">Finish review</button>
+  <div class="progress"><span id="count"></span><div class="bar" id="bar" role="progressbar" aria-label="Review progress"></div></div>
+  <span class="save" id="save" role="status"></span>
+  <button class="btn icon" id="theme" data-act="theme"></button>
+  <button class="btn" data-act="next-pending" title="Next pending item (n)"><svg class="ic sm" aria-hidden="true"><use href="#i-next"/></svg>Next pending</button>
+  <button class="btn primary" data-act="finish"><svg class="ic sm" aria-hidden="true"><use href="#i-flag"/></svg>Finish review</button>
 </header>
 <div class="layout">
-  <nav class="files pane" id="files"></nav>
+  <nav class="files pane" id="files" aria-label="Files"></nav>
   <main class="main pane" id="main"></main>
-  <aside class="related pane" id="related"></aside>
+  <aside class="related pane" id="related" aria-label="Connected files"></aside>
 </div>
 <script id="review-data" type="application/json">__REVIEW_DATA__</script>
 <script>
@@ -202,6 +319,7 @@ for (const c of DATA.changes) {
 }
 const HL = window.hljs || null;
 const $ = id => document.getElementById(id);
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const state = {
   decisions: {}, online: false, finished: false,
@@ -228,6 +346,7 @@ function md(src) {
     return "<p>" + lines.map(inline).join("<br>") + "</p>";
   }).join("");
 }
+const ic = (name, size = "sm") => `<svg class="ic ${size}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const LANG_ALIAS = { htm: "xml", html: "xml", vue: "xml", svelte: "xml", svg: "xml", jsx: "javascript", mjs: "javascript", cjs: "javascript", tsx: "typescript", yml: "yaml", h: "c", hpp: "cpp", cc: "cpp", kt: "kotlin", rs: "rust", rb: "ruby", py: "python", sh: "bash", zsh: "bash", md: "markdown", tf: "ini", toml: "ini" };
 function langFor(path) {
   if (!HL) return null;
@@ -261,6 +380,8 @@ function countsFor(list) {
   for (const x of list) c[decision(x.id).status]++;
   return c;
 }
+const pendingIds = list => list.filter(x => decision(x.id).status === "pending").map(x => x.id);
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 function whereLabel(c) {
   if (c.start == null) return "whole file";
   const r = c.start === c.end ? `L${c.start}` : `L${c.start}–${c.end}`;
@@ -288,23 +409,47 @@ function covers(c, kind, na, oa) {
 // ---------- rendering ----------
 function renderHeader() {
   const m = DATA.meta;
-  $("branch").innerHTML = `<b>${esc(m.head)}</b> vs <b>${esc(m.base)}</b> · merge-base ${esc(m.merge_base.slice(0, 8))}${m.include_uncommitted ? " · incl. uncommitted" : ""}`;
+  $("branch").innerHTML = `${ic("branch")}<b>${esc(m.head)}</b> vs <b>${esc(m.base)}</b><span>· ${esc(m.merge_base.slice(0, 8))}${m.include_uncommitted ? " · incl. uncommitted" : ""}</span>`;
   const c = countsFor(DATA.changes);
   const done = c.confirmed + c.declined;
-  $("count").textContent = `${done} of ${c.total} reviewed${c.declined ? ` · ${c.declined} changes requested` : ""}`;
+  $("count").innerHTML = `<strong>${done}</strong> / ${c.total} reviewed${c.declined ? ` · ${c.declined} change${c.declined === 1 ? "" : "s"} requested` : ""}`;
   const pct = n => (c.total ? (100 * n / c.total) : 0) + "%";
-  $("bar").innerHTML = `<i class="c" style="width:${pct(c.confirmed)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
+  const bar = $("bar");
+  bar.innerHTML = `<i class="c" style="width:${pct(c.confirmed)}"></i><i class="d" style="width:${pct(c.declined)}"></i>`;
+  bar.setAttribute("aria-valuenow", String(done)); bar.setAttribute("aria-valuemax", String(c.total));
   const s = $("save");
-  s.className = "save" + (state.online ? "" : " off");
-  s.textContent = state.finished ? "Finished" : state.online ? "Autosaving to review.json" : "Not connected, decisions won't be saved";
+  s.className = "save" + (state.finished ? " done" : state.online ? "" : " off");
+  s.textContent = state.finished ? "Finished" : state.online ? "Autosaving" : "Not connected";
+  s.title = state.finished ? "" : state.online ? "Every decision is saved to review.json" : "Decisions won't be saved";
   document.title = `Review · ${m.head}`;
+  renderThemeButton();
 }
+
+// ---------- theme ----------
+const THEME_ORDER = ["system", "light", "dark"];
+const THEME_ICON = { system: "monitor", light: "sun", dark: "moon" };
+function renderThemeButton() {
+  const pref = document.documentElement.dataset.themePref || "system";
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(pref) + 1) % THEME_ORDER.length];
+  const b = $("theme");
+  b.innerHTML = ic(THEME_ICON[pref], "");
+  b.title = `Theme: ${pref} (click for ${next}, key t)`;
+  b.setAttribute("aria-label", `Theme: ${pref}. Switch to ${next}`);
+}
+function cycleTheme() {
+  const pref = document.documentElement.dataset.themePref || "system";
+  const next = THEME_ORDER[(THEME_ORDER.indexOf(pref) + 1) % THEME_ORDER.length];
+  try { if (next === "system") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  applyTheme(next);
+  renderThemeButton();
+}
+SYSTEM_DARK.addEventListener("change", () => applyTheme(document.documentElement.dataset.themePref || "system"));
 
 function fileChip(path) {
   const c = countsFor(BY_FILE.get(path) || []);
   if (!c.total) return "";
-  if (c.declined) return `<span class="chip has-bad">${c.declined} ✗ · ${c.confirmed + c.declined}/${c.total}</span>`;
-  if (!c.pending) return `<span class="chip done">✓ ${c.total}</span>`;
+  if (c.declined) return `<span class="chip has-bad" title="${c.declined} change(s) requested">${ic("pencil", "xs")}${c.declined} · ${c.confirmed + c.declined}/${c.total}</span>`;
+  if (!c.pending) return `<span class="chip done" title="All confirmed">${ic("check", "xs")}${c.total}</span>`;
   return `<span class="chip">${c.confirmed}/${c.total}</span>`;
 }
 // With every level picked, all files show; otherwise only files with an item at a picked level.
@@ -316,15 +461,26 @@ function pathLabel(p) {
   const [dir, base] = splitPath(p);
   return `<span class="path" title="${esc(p)}"><span><span class="dir">${esc(dir)}</span>${esc(base)}</span></span>`;
 }
+// High-importance items are deliberately left out: those need a real read.
+function bulkButtons() {
+  const dis = state.online ? "" : "disabled";
+  return ["low", "medium"].map(lv => {
+    const n = pendingIds(DATA.changes.filter(c => c.importance === lv)).length;
+    const label = lv[0].toUpperCase() + lv.slice(1);
+    return `<button class="btn ok-ghost" data-act="confirm-level" data-level="${lv}" ${n && !dis ? "" : "disabled"} title="Confirm every pending ${lv}-importance item">${ic("check-all")}Confirm all ${label} Importance<span class="count">${n}</span></button>`;
+  }).join("");
+}
 function renderFiles() {
   const v = state.view;
   const all = countsFor(DATA.changes);
   const q = state.filter.toLowerCase();
-  let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st">≡</span><span class="path"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.confirmed + all.declined}/${all.total}</span></button>`;
-  h += `<input class="filter" id="filter" placeholder="Filter files…" value="${esc(state.filter)}">`;
-  h += `<div class="imp-filter">${["high", "medium", "low"].map(lv => `<button class="imp-${lv} ${state.importance.has(lv) ? "on" : ""}" data-act="importance" data-level="${lv}" title="Show files with ${lv}-importance items">${lv}</button>`).join("")}</div>`;
+  let h = `<button class="nav-item ${v.kind === "overview" ? "active" : ""}" data-act="overview"><span class="st st-ctx">${ic("list", "xs")}</span><span class="path plain"><span>Overview</span></span><span class="chip ${all.pending ? "" : "done"}">${all.confirmed + all.declined}/${all.total}</span></button>`;
+  h += `<div class="search">${ic("search")}<input class="filter" id="filter" type="search" aria-label="Filter files" placeholder="Filter files…" value="${esc(state.filter)}"></div>`;
+  h += `<div class="section-label">Importance</div>`;
+  h += `<div class="imp-filter" role="group" aria-label="Show files by importance">${["high", "medium", "low"].map(lv => `<button class="imp-${lv} ${state.importance.has(lv) ? "on" : ""}" data-act="importance" data-level="${lv}" aria-pressed="${state.importance.has(lv)}" title="Show files with ${lv}-importance items">${lv}</button>`).join("")}</div>`;
+  h += `<div class="section-label">Quick confirm</div><div class="bulk">${bulkButtons()}</div>`;
   const shown = DATA.files.filter(fileVisible);
-  h += `<div class="section-label">Changed files · ${shown.length === DATA.files.length ? shown.length : `${shown.length} of ${DATA.files.length}`}</div>`;
+  h += `<div class="section-label"><span>Changed files</span><span>${shown.length === DATA.files.length ? shown.length : `${shown.length} of ${DATA.files.length}`}</span></div>`;
   for (const f of shown) {
     if (q && !f.path.toLowerCase().includes(q)) continue;
     const L = STATUS_LETTER[f.status] || "M";
@@ -332,7 +488,7 @@ function renderFiles() {
   }
   const ctx = DATA.context_files.filter(f => !q || f.path.toLowerCase().includes(q));
   if (ctx.length) {
-    h += `<div class="section-label">Context (unchanged) · ${ctx.length}</div>`;
+    h += `<div class="section-label"><span>Context (unchanged)</span><span>${ctx.length}</span></div>`;
     for (const f of ctx) {
       h += `<button class="nav-item ${v.kind === "context" && v.path === f.path ? "active" : ""}" data-act="open" data-path="${esc(f.path)}"><span class="st st-ctx">·</span>${pathLabel(f.path)}</button>`;
     }
@@ -349,20 +505,20 @@ function cardHtml(c) {
   const editing = state.editing === c.id;
   let actions;
   if (editing) {
-    actions = `<div class="decline-form"><textarea id="reason" placeholder="What should be different about this change?">${esc(state.draft)}</textarea>
-      <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint">⌘/Ctrl+Enter to save · Esc to cancel</span></div></div>`;
+    actions = `<div class="decline-form"><label for="reason">What should be different?</label><textarea id="reason" placeholder="Describe the change you want…">${esc(state.draft)}</textarea>
+      <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">${ic("pencil")}Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel</span></div></div>`;
   } else if (d.status === "confirmed") {
-    actions = `<div class="actions"><span class="verdict ok">✓ Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
+    actions = `<div class="actions"><span class="verdict ok">${ic("check")}Confirmed</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button></div>`;
   } else if (d.status === "declined") {
-    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">✎ Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">Undo</button></div>`;
+    actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">${ic("pencil")}Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button></div>`;
   } else {
     const dis = state.online ? "" : "disabled";
-    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>Request Change</button></div>`;
+    actions = `<div class="actions"><button class="btn ok" data-act="confirm" data-id="${esc(c.id)}" ${dis}>${ic("check")}Confirm</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button></div>`;
   }
   return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
     <div class="card-head"><span class="imp imp-${c.importance}">${c.importance}</span><span class="card-title">${esc(c.title)}</span>${c.auto ? `<span class="auto-tag">added automatically</span>` : ""}<span class="where">${esc(whereLabel(c))}</span></div>
     <div class="expl">${md(c.explanation)}</div>
-    ${c.concerns ? `<div class="concerns"><strong>Worth checking:</strong> ${md(c.concerns)}</div>` : ""}
+    ${c.concerns ? `<div class="concerns">${ic("alert")}<div><strong>Worth checking:</strong> ${md(c.concerns)}</div></div>` : ""}
     ${actions}</div>`;
 }
 const cardRow = cards => cards.length ? `<tr class="card-row"><td colspan="4">${cards.map(cardHtml).join("")}</td></tr>` : "";
@@ -450,7 +606,7 @@ function backButton() {
   if (!state.history.length) return "";
   const prev = state.history[state.history.length - 1];
   const label = prev.kind === "overview" ? "Overview" : splitPath(prev.path)[1];
-  return `<button class="btn link" data-act="back">← Back to ${esc(label)}</button>`;
+  return `<button class="btn link" data-act="back">${ic("back")}Back to ${esc(label)}</button>`;
 }
 
 function renderFile(f) {
@@ -458,11 +614,14 @@ function renderFile(f) {
   const c = countsFor(changes);
   const canFull = f.content != null && f.status !== "deleted" && !f.binary;
   const mode = canFull ? state.mode : "diff";
+  const confirmAll = c.pending
+    ? `<button class="btn ok" data-act="confirm-file" data-path="${esc(f.path)}" ${state.online ? "" : "disabled"} title="Confirm every pending item in this file (Shift+C)">${ic("check-all")}Confirm all in file<span class="count">${c.pending}</span></button>`
+    : "";
   let head = `<div class="file-head">${backButton()}
     <div class="row"><span class="st st-${STATUS_LETTER[f.status] || "M"}">${STATUS_LETTER[f.status] || "M"}</span><h2>${esc(f.path)}</h2>
     <span class="stats"><span class="a">+${f.additions}</span> <span class="r">−${f.deletions}</span></span>
-    <span class="chip">${c.confirmed + c.declined}/${c.total} reviewed</span>
-    ${canFull ? `<span class="seg"><button class="${mode === "diff" ? "on" : ""}" data-act="mode" data-mode="diff">Diff</button><button class="${mode === "full" ? "on" : ""}" data-act="mode" data-mode="full">Full file</button></span>` : ""}</div>
+    <span class="chip ${c.total && !c.pending ? "done" : ""}">${c.confirmed + c.declined}/${c.total} reviewed</span>
+    <span class="head-actions">${canFull ? `<span class="seg" role="group" aria-label="View mode"><button class="${mode === "diff" ? "on" : ""}" data-act="mode" data-mode="diff" aria-pressed="${mode === "diff"}">Diff</button><button class="${mode === "full" ? "on" : ""}" data-act="mode" data-mode="full" aria-pressed="${mode === "full"}">Full file</button></span>` : ""}${confirmAll}</span></div>
     ${f.old_path ? `<div class="stats">renamed from ${esc(f.old_path)}</div>` : ""}
     ${f.untracked ? `<div class="stats">untracked file (not yet added to git)</div>` : ""}
     ${f.summary ? `<div class="summary">${md(f.summary)}</div>` : ""}</div>`;
@@ -503,9 +662,16 @@ function renderContext(f) {
 function renderOverview() {
   const m = DATA.meta;
   const c = countsFor(DATA.changes);
+  const highPending = pendingIds(DATA.changes.filter(x => x.importance === "high")).length;
   let h = `<div class="overview"><h1>Review of ${esc(m.head)}</h1>
-    <div class="meta">Compared with <b>${esc(m.base)}</b> (merge-base <code>${esc(m.merge_base.slice(0, 10))}</code>)${m.include_uncommitted ? ", including uncommitted and untracked changes" : ""}. ${DATA.files.length} files · ${c.total} review items.</div>
-    ${(m.notes || []).map(n => `<div class="concerns">${esc(n)}</div>`).join("")}
+    <div class="meta">Compared with <b>${esc(m.base)}</b> (merge-base <code>${esc(m.merge_base.slice(0, 10))}</code>)${m.include_uncommitted ? ", including uncommitted and untracked changes" : ""}. ${plural(DATA.files.length, "file")} · ${plural(c.total, "review item")}.</div>
+    ${(m.notes || []).map(n => `<div class="concerns">${ic("alert")}<div>${esc(n)}</div></div>`).join("")}
+    <div class="stat-row">
+      <div class="stat"><div class="n">${c.pending}</div><div class="l">Pending</div></div>
+      <div class="stat high"><div class="n">${highPending}</div><div class="l">High importance pending</div></div>
+      <div class="stat ok"><div class="n">${c.confirmed}</div><div class="l">Confirmed</div></div>
+      <div class="stat change"><div class="n">${c.declined}</div><div class="l">Changes requested</div></div>
+    </div>
     <div class="text">${md(DATA.overview) || "<p class='empty'>No overview was written.</p>"}</div>`;
   for (const f of DATA.files) {
     const list = BY_FILE.get(f.path) || [];
@@ -518,13 +684,13 @@ function renderOverview() {
 
 function miniItem(x) {
   const d = decision(x.id);
-  return `<button class="mini" data-act="goto" data-id="${esc(x.id)}"><span class="dot ${d.status}"></span><span class="imp imp-${x.importance}">${x.importance[0]}</span><span>${esc(x.title)}</span><span class="ml">${esc(whereLabel(x))}</span></button>`;
+  return `<button class="mini" data-act="goto" data-id="${esc(x.id)}"><span class="dot ${d.status}" title="${d.status}"></span><span class="imp imp-${x.importance}">${x.importance[0]}</span><span class="t">${esc(x.title)}</span><span class="ml">${esc(whereLabel(x))}</span></button>`;
 }
 
 function renderMain() {
   const main = $("main");
   const v = state.view;
-  let h = state.online || state.finished ? "" : `<div class="banner">Can't reach the i-read-code server, so decisions can't be saved. Ask Claude to restart the review server, then reload this page.</div>`;
+  let h = state.online || state.finished ? "" : `<div class="banner" role="alert">${ic("alert")}<div>Can't reach the i-read-code server, so decisions can't be saved. Ask Claude to restart the review server, then reload this page.</div></div>`;
   if (v.kind === "overview") h += renderOverview();
   else if (v.kind === "file") h += renderFile(FILES.get(v.path));
   else if (v.kind === "context") h += renderContext(CTX.get(v.path));
@@ -554,7 +720,15 @@ function renderRelated() {
       if (list.length) h += `<section><h3>Items in this file</h3>${list.map(miniItem).join("")}</section>`;
     }
   }
-  h += `<section><h3>Keys</h3><div class="keys"><kbd>j</kbd>/<kbd>k</kbd> next/prev item · <kbd>c</kbd> confirm · <kbd>d</kbd> request change<br><kbd>n</kbd> next pending anywhere · <kbd>[</kbd>/<kbd>]</kbd> prev/next file · <kbd>b</kbd> back</div></section>`;
+  h += `<section><h3>Keys</h3><div class="keys grid">
+    <span><kbd>j</kbd> <kbd>k</kbd></span><span>next / previous item</span>
+    <span><kbd>c</kbd></span><span>confirm</span>
+    <span><kbd>d</kbd></span><span>request change</span>
+    <span><kbd>⇧</kbd> <kbd>C</kbd></span><span>confirm all in file</span>
+    <span><kbd>n</kbd></span><span>next pending anywhere</span>
+    <span><kbd>[</kbd> <kbd>]</kbd></span><span>previous / next file</span>
+    <span><kbd>b</kbd></span><span>back</span>
+    <span><kbd>t</kbd></span><span>theme: system / light / dark</span></div></section>`;
   aside.innerHTML = h;
 }
 
@@ -599,7 +773,7 @@ function setFocus(id, smooth = true) {
   const el = document.querySelector(`[data-card="${CSS.escape(id)}"]`);
   if (el) {
     el.classList.add("focused");
-    el.scrollIntoView({ block: "center", behavior: smooth ? "smooth" : "auto" });
+    el.scrollIntoView({ block: "center", behavior: smooth && !REDUCED_MOTION ? "smooth" : "auto" });
   }
   highlightRows(id, true);
 }
@@ -623,7 +797,7 @@ function nextPending() {
     const c = list[(start + k + list.length) % list.length];
     if (decision(c.id).status === "pending") return goto(c.id);
   }
-  toast("Nothing pending. Click Finish review when you're done.", false);
+  toast("Nothing pending. Click Finish review when you're done.", "info");
 }
 function stepFile(delta) {
   const paths = DATA.files.filter(fileVisible).map(f => f.path);
@@ -658,6 +832,29 @@ async function decide(id, status, reason = "", advance = false) {
     toast("Couldn't save: " + e.message);
   }
 }
+// Bulk confirm only touches pending items, so earlier change requests are never overwritten.
+async function decideMany(ids, status, what) {
+  if (!ids.length || !state.online) return;
+  try {
+    applyState(await api("/api/decisions", { change_ids: ids, status }));
+    if (state.editing && ids.includes(state.editing)) { state.editing = null; state.draft = ""; }
+    renderAll();
+    if (state.focus) setFocus(state.focus, false);
+    if (status === "confirmed") {
+      toast(`Confirmed ${plural(ids.length, "item")} ${what}.`, "info", { label: "Undo", run: () => decideMany(ids, "pending", what) });
+    } else {
+      toast(`Moved ${plural(ids.length, "item")} back to pending.`, "info");
+    }
+  } catch (e) {
+    toast("Couldn't save: " + e.message);
+  }
+}
+function confirmFile(path) {
+  decideMany(pendingIds(BY_FILE.get(path) || []), "confirmed", `in ${splitPath(path)[1]}`);
+}
+function confirmLevel(level) {
+  decideMany(pendingIds(DATA.changes.filter(c => c.importance === level)), "confirmed", `of ${level} importance`);
+}
 async function finish() {
   const c = countsFor(DATA.changes);
   if (c.pending && !confirm(`${c.pending} item(s) are still pending. Finish anyway?`)) return;
@@ -666,17 +863,27 @@ async function finish() {
     applyState(doc); state.online = false; renderAll();
     const o = document.createElement("div");
     o.className = "done-overlay";
-    o.innerHTML = `<div class="box"><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
+    o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true");
+    o.innerHTML = `<div class="box"><div class="badge">${ic("check", "")}</div><h2>Review saved</h2><p>${doc.counts.confirmed} confirmed, ${doc.counts.declined} changes requested, ${doc.counts.pending} pending.</p><p>Decisions are in <code>review.json</code> next to this page. Go back to Claude; it will pick up the review from there.</p></div>`;
     document.body.appendChild(o);
   } catch (e) { toast("Couldn't finish: " + e.message); }
 }
 let toastTimer;
-function toast(msg, bad = true) {
+function toast(msg, kind = "bad", action = null) {
   document.querySelectorAll(".toast").forEach(t => t.remove());
   const t = document.createElement("div");
-  t.className = "toast"; if (!bad) t.style.background = "var(--accent)";
-  t.textContent = msg; document.body.appendChild(t);
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 3500);
+  t.className = "toast" + (kind === "bad" ? " bad" : "");
+  t.setAttribute("role", kind === "bad" ? "alert" : "status");
+  const span = document.createElement("span");
+  span.textContent = msg; t.appendChild(span);
+  if (action) {
+    const b = document.createElement("button");
+    b.innerHTML = ic("undo") + " " + esc(action.label);
+    b.addEventListener("click", () => { t.remove(); action.run(); });
+    t.appendChild(b);
+  }
+  document.body.appendChild(t);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), action ? 7000 : 3500);
 }
 
 // ---------- events ----------
@@ -698,12 +905,15 @@ document.addEventListener("click", e => {
     case "expand": state.expanded.add(el.dataset.key); renderAll(); break;
     case "show-generated": state.showGenerated.add(el.dataset.path); renderAll(); break;
     case "confirm": state.focus = id; decide(id, "confirmed"); break;
+    case "confirm-file": confirmFile(el.dataset.path); break;
+    case "confirm-level": confirmLevel(el.dataset.level); break;
     case "decline": state.focus = id; state.editing = id; state.draft = decision(id).reason || ""; renderAll(); break;
     case "cancel": state.editing = null; state.draft = ""; renderAll(); break;
     case "submit-decline": submitDecline(id); break;
     case "undo": decide(id, "pending"); break;
     case "next-pending": nextPending(); break;
     case "finish": finish(); break;
+    case "theme": cycleTheme(); break;
   }
 });
 function submitDecline(id, advance = false) {
@@ -738,6 +948,8 @@ document.addEventListener("keydown", e => {
     case "[": stepFile(-1); break;
     case "b": { const prev = state.history.pop(); if (prev) navigate(prev, false); break; }
     case "c": if (f && state.online) decide(f, "confirmed", "", true); break;
+    case "C": if (state.view.kind === "file") confirmFile(state.view.path); break;
+    case "t": cycleTheme(); break;
     case "d": if (f && state.online) { e.preventDefault(); state.editing = f; state.draft = decision(f).reason || ""; renderAll(); } break;
     default: return;
   }

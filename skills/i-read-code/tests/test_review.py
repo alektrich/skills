@@ -90,19 +90,47 @@ class ReviewTest(unittest.TestCase):
         gaps = [(c["file"], c["start"], c["end"]) for c in data["changes"] if c["title"] == GAP_TITLE]
         self.assertEqual(gaps, [("b.py", 3, 3)])
 
-    def test_confirm_and_decline_are_saved_to_review_json(self):
+    def serve(self):
         server = subprocess.Popen(
             [sys.executable, os.path.join(SCRIPTS, "serve.py"), "--dir", self.out, "--no-open"],
             stdout=subprocess.PIPE, text=True,
         )
+        url = server.stdout.readline().split("Review page: ")[1].strip()
+
+        def post(path, body):
+            req = urllib.request.Request(url + path, data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json"})
+            return json.load(urllib.request.urlopen(req, timeout=5))
+
+        return server, post
+
+    def stop(self, server):
+        if server.poll() is None:
+            server.kill()
+        server.stdout.close()
+
+    def test_bulk_confirm_and_undo(self):
+        server, post = self.serve()
         try:
-            url = server.stdout.readline().split("Review page: ")[1].strip()
+            doc = post("api/decisions", {"change_ids": ["b1", "b3"], "status": "confirmed"})
+            self.assertEqual(doc["counts"]["confirmed"], 2)
+            doc = post("api/decisions", {"change_ids": ["b3"], "status": "pending"})
+            items = {i["change_id"]: i for i in doc["items"]}
+            self.assertEqual((items["b1"]["status"], items["b3"]["status"]), ("confirmed", "pending"))
+            for bad in ({"change_ids": ["a"], "status": "declined"}, {"change_ids": ["nope"], "status": "confirmed"},
+                        {"change_ids": [], "status": "confirmed"}):
+                with self.assertRaises(urllib.error.HTTPError) as err:
+                    post("api/decisions", bad)
+                self.assertEqual(err.exception.code, 400)
+                err.exception.close()
+        finally:
+            self.stop(server)
+        with open(os.path.join(self.out, "review.json")) as fh:
+            self.assertEqual(json.load(fh)["counts"]["confirmed"], 1)
 
-            def post(path, body):
-                req = urllib.request.Request(url + path, data=json.dumps(body).encode(),
-                                             headers={"Content-Type": "application/json"})
-                return json.load(urllib.request.urlopen(req, timeout=5))
-
+    def test_confirm_and_decline_are_saved_to_review_json(self):
+        server, post = self.serve()
+        try:
             post("api/decision", {"change_id": "a", "status": "confirmed"})
             post("api/decision", {"change_id": "b1", "status": "declined", "reason": "Import inside main()"})
             with self.assertRaises(urllib.error.HTTPError) as err:
@@ -112,9 +140,7 @@ class ReviewTest(unittest.TestCase):
             post("api/finish", {})
             server.wait(timeout=5)
         finally:
-            if server.poll() is None:
-                server.kill()
-            server.stdout.close()
+            self.stop(server)
 
         with open(os.path.join(self.out, "review.json")) as fh:
             review = json.load(fh)

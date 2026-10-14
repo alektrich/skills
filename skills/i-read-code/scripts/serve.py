@@ -3,7 +3,7 @@
 
   python3 serve.py --dir <review-dir> [--port N] [--no-open]
 
-Listens on 127.0.0.1 only. Each Confirm/Decline is written to review.json
+Listens on 127.0.0.1 only. Each Confirm/Decline (and each bulk confirm) is written to review.json
 immediately (atomic replace), so closing the browser loses nothing; restarting
 the server resumes from the saved file. The process exits when the reviewer
 clicks "Finish review", which lets whoever started it in the background know
@@ -99,6 +99,22 @@ class Review:
             self.status = "in_progress"
             return self.write()
 
+    def decide_many(self, cids, status):
+        """Bulk confirm (or reset to pending) in one write; declining always needs a per-item reason."""
+        if status not in ("confirmed", "pending"):
+            raise ValueError("bulk decisions can only confirm or reset to pending")
+        if not isinstance(cids, list) or not cids:
+            raise ValueError("change_ids must be a non-empty list")
+        unknown = [c for c in cids if c not in self.changes]
+        if unknown:
+            raise ValueError(f"unknown change ids {unknown!r}")
+        with self.lock:
+            stamp = now() if status != "pending" else None
+            for cid in cids:
+                self.items[cid] = {"status": status, "reason": "", "decided_at": stamp}
+            self.status = "in_progress"
+            return self.write()
+
     def finish(self):
         with self.lock:
             self.status = "finished"
@@ -145,6 +161,13 @@ def make_handler(review, server_ref):
                 c = review.changes[body["change_id"]]
                 where = c["file"] + (f":{c['start']}-{c['end']}" if c["start"] is not None else "")
                 print(f"{body['status']:<9} {where}  {c['title']}", flush=True)
+                self.send(200, doc)
+            elif route == "/api/decisions":
+                try:
+                    doc = review.decide_many(body.get("change_ids"), body.get("status"))
+                except ValueError as e:
+                    return self.send(400, {"error": str(e)})
+                print(f"{body['status']:<9} {len(body['change_ids'])} items in bulk", flush=True)
                 self.send(200, doc)
             elif route == "/api/finish":
                 doc = review.finish()
