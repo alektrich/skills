@@ -565,14 +565,14 @@ function cardHtml(c) {
   let actions;
   if (editing) {
     actions = `<div class="decline-form"><label for="reason">What should be different?</label><textarea id="reason" placeholder="Describe the change you want…">${esc(state.draft)}</textarea>
-      <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">${ic("pencil")}Request Change</button><button class="btn" data-act="cancel">Cancel</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel</span></div></div>`;
+      <div class="actions"><button class="btn change solid" data-act="submit-decline" data-id="${esc(c.id)}">${ic("pencil")}Request Changes</button><button class="btn" data-act="cancel">Cancel</button><span class="hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel</span></div></div>`;
   } else if (d.status === "approved") {
     actions = `<div class="actions"><span class="verdict ok">${ic("check")}Approved</span><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else if (d.status === "declined") {
     actions = `<div class="reason">${esc(d.reason)}</div><div class="actions"><span class="verdict change">${ic("pencil")}Changes requested</span><button class="btn link" data-act="decline" data-id="${esc(c.id)}">Edit reason</button><button class="btn link" data-act="undo" data-id="${esc(c.id)}">${ic("undo")}Undo</button>${askBtn}</div>`;
   } else {
     const dis = state.online ? "" : "disabled";
-    actions = `<div class="actions"><button class="btn ok" data-act="approve" data-id="${esc(c.id)}" ${dis}>${ic("check")}Approve</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Change</button>${askBtn}</div>`;
+    actions = `<div class="actions"><button class="btn ok" data-act="approve" data-id="${esc(c.id)}" ${dis}>${ic("check")}Approve</button><button class="btn change" data-act="decline" data-id="${esc(c.id)}" ${dis}>${ic("pencil")}Request Changes</button>${askBtn}</div>`;
   }
   const askOpen = state.ask.available && (state.askOpen.has(c.id) || state.live[c.id]);
   return `<div class="card s-${d.status} ${state.focus === c.id ? "focused" : ""}" data-card="${esc(c.id)}">
@@ -839,7 +839,7 @@ function renderRelated() {
   if (v.kind === "overview") {
     const pending = DATA.changes.filter(c => decision(c.id).status === "pending");
     const high = pending.filter(c => c.importance === "high");
-    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Approve</b> and <b>Request Change</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Agent</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
+    h += `<section><h3>How to review</h3><div class="keys">Pick a file on the left. Each explained change has <b>Approve</b> and <b>Request Changes</b>; a change request asks for a reason. Connected files show up here on the right.${state.ask.available ? " <b>Ask Agent</b> on any change (or below the overview) to ask a question; answers can read the code but never edit it." : ""}</div></section>`;
     if (high.length) h += `<section><h3>High importance, pending</h3>${high.map(miniItem).join("")}</section>`;
   } else {
     const links = DATA.connections[v.path] || [];
