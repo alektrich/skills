@@ -6,7 +6,7 @@ A collection of agent skills for Claude Code (and other compatible coding agents
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`i-read-code`](skills/i-read-code/SKILL.md)     | Manual review of your branch (`/i-read-code`). Diffs against main/master or any ref, explains each change, and opens a local page where you Confirm or Decline each one with connected files alongside. Decisions are saved to JSON and the agent offers to fix what you declined. Needs `python3`. |
 | [`muscle-memory`](skills/muscle-memory/SKILL.md) | Coach mode — you write the meaningful code while the agent decomposes the task, reviews your work, and gives escalating hints instead of solutions. |
-| [`unslop`](skills/unslop/SKILL.md)               | Cut AI tells from any writing. A numbered rulebook of patterns to detect and rewrite; other skills (like `whiplash`) invoke it.                                        |
+| [`unslop`](skills/unslop/SKILL.md)               | Cut AI tells from any writing. A numbered rulebook of patterns to detect and rewrite; other skills (like `whiplash` and `i-read-code`) invoke it.                                        |
 | [`whiplash`](skills/whiplash/SKILL.md)           | Demanding-mentor mode (`/whiplash`). Challenges bad ideas and sloppy reasoning, makes you think before it answers, and only praises work that earned it. Writes in `unslop` style. |
 
 ## Installation
@@ -57,6 +57,7 @@ skills/
     SKILL.md
     scripts/      # diff collection, page build, local server
     assets/       # review page template
+    references/   # bundled copy of the unslop rules, for installs without unslop
     tests/        # python3 -m unittest discover -s skills/i-read-code/tests
   muscle-memory/
     SKILL.md

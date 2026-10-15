@@ -104,6 +104,8 @@ The schema, field by field:
 
 Lock files, build output and binaries get automatic items. Mention them in an item only if they matter, for example a dependency upgrade inside a lock file.
 
+**Writing style: unslop.** Everything the user reads on the page follows the `unslop` skill: `overview`, file `summary`, `title`, `explanation`, `concerns` and connection `reason`. Before writing `analysis.json`, invoke the `unslop` skill with the Skill tool. If it isn't installed or can't be invoked, read the bundled copy at `references/unslop.md` instead. Apply the rules as you write and scan the text once more before building. Filler and hedging make a reviewer skim, and a skimmed explanation hides the one sentence that matters. When you split the work across subagents, tell each one to do the same.
+
 **Big branches.** If `diff.txt` has more than about 3,000 lines across many files, split the files into groups by area and have subagents each write `analysis-<group>.json` with the same schema. Give each one the review directory path, its file list, and this section of the instructions. Write `analysis.json` yourself with the overview, order and cross-group connections. The build merges every `analysis*.json` in the directory. Change ids must be unique across files, so prefix them by group.
 
 ## 3. Build the page

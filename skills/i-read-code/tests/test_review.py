@@ -16,7 +16,8 @@ import unittest
 import urllib.error
 import urllib.request
 
-SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
+SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+SCRIPTS = os.path.join(SKILL_DIR, "scripts")
 GAP_TITLE = "Change without an explanation"
 SNIPPET = "import os\n\nprint(os.name)\n"
 
@@ -413,6 +414,19 @@ class ReviewTest(unittest.TestCase):
         self.assertEqual((declined["status"], declined["reason"]), ("declined", "Import inside main()"))
         self.assertEqual((declined["file"], declined["start"], declined["end"]), ("b.py", 1, 1))
         self.assertEqual(items["b3"]["status"], "pending")
+
+
+class BundledUnslopTest(unittest.TestCase):
+    def test_copy_matches_unslop_skill(self):
+        skill = os.path.join(SKILL_DIR, "..", "unslop", "SKILL.md")
+        if not os.path.exists(skill):
+            self.skipTest("unslop isn't next to i-read-code (installed on its own)")
+        with open(skill) as fh:
+            _, _, body = fh.read().split("---\n", 2)
+        with open(os.path.join(SKILL_DIR, "references", "unslop.md")) as fh:
+            copy = fh.read()
+        self.assertEqual(copy, body.lstrip("\n"),
+                         "references/unslop.md is out of date; copy the body of skills/unslop/SKILL.md")
 
 
 if __name__ == "__main__":
